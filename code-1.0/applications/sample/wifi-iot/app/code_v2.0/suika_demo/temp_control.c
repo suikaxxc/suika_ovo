@@ -30,7 +30,7 @@
 #define FAN_IO   WIFI_IOT_IO_NAME_GPIO_4
 #define FAN_PWM_PORT WIFI_IOT_PWM_PORT_PWM1
 
-// PWM frequency for fan (about 25kHz for DC brushless fan)
+// PWM frequency for fan (40kHz for DC brushless fan quiet operation)
 #define FAN_PWM_FREQ 40000
 
 static int g_heater_state = 0;

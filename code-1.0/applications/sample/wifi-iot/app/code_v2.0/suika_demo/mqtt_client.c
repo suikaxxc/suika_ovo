@@ -32,12 +32,13 @@
 
 #define MQTT_TASK_STACK_SIZE 8192
 
-// MQTT configuration
-#define MQTT_HOST "192.168.42.169"  // MQTT broker address
+// MQTT configuration - modify these for your setup
+// For production, these should be stored in configuration or set at build time
+#define MQTT_HOST "192.168.1.100"  // MQTT broker address
 #define MQTT_PORT 1883
 #define MQTT_CLIENT_ID "hi3861_aquatic_tank"
-#define MQTT_USERNAME "hi3861_tank"
-#define MQTT_PASSWORD "tankpassword"
+#define MQTT_USERNAME "mqtt_user"
+#define MQTT_PASSWORD "mqtt_password"
 
 // MQTT topics (matching HarmonyOS app)
 #define MQTT_TOPIC_DATA "tank/data"      // Publish sensor data
@@ -106,9 +107,9 @@ static void PublishSensorData(int socket)
 static void HandleControlCommand(const char *payload, int payloadLen)
 {
     char cmdBuf[256];
-    if (payloadLen >= (int)sizeof(cmdBuf))
+    if (payloadLen >= (int)sizeof(cmdBuf) - 1)
     {
-        payloadLen = sizeof(cmdBuf) - 1;
+        payloadLen = (int)sizeof(cmdBuf) - 1;
     }
     memcpy(cmdBuf, payload, payloadLen);
     cmdBuf[payloadLen] = '\0';

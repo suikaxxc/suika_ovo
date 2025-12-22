@@ -12,7 +12,7 @@ void I2C_CommonInit(void)
         g_i2cMutex = osMutexNew(&attr);
     }
 
-    // 统一初始化 I2C0
+    // Initialize I2C0 with GPIO13 (SDA) and GPIO14 (SCL)
     GpioInit();
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_13, WIFI_IOT_IO_FUNC_GPIO_13_I2C0_SDA);
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_14, WIFI_IOT_IO_FUNC_GPIO_14_I2C0_SCL);

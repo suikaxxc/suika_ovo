@@ -3,10 +3,10 @@
 
 #include "cmsis_os2.h"
 
-// 声明全局 I2C 互斥锁
+// Global I2C mutex for thread-safe access
 extern osMutexId_t g_i2cMutex;
 
-// I2C 初始化函数（带锁创建）
+// I2C initialization function with mutex setup
 void I2C_CommonInit(void);
 
 #endif

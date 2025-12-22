@@ -23,7 +23,13 @@
 
 #define TANK_CONTROL_TASK_STACK_SIZE 4096
 
-// Default parameters for different plant types
+/**
+ * Default parameters for different plant types
+ * Format: {waterLevelMin(%), waterLevelMax(%), waterTempMin(C), waterTempMax(C),
+ *          lightThreshold(%), lightDuration(hours), tdsMin(ppm), tdsMax(ppm)}
+ * Index: 0-Pothos, 1-Water Lily, 2-Pennywort, 3-Water Hyacinth,
+ *        4-Lucky Bamboo, 5-Bowl Lotus, 6-Narcissus, 7-Hyacinth
+ */
 static const TankParams g_plant_params[] = {
     // 绿萝 (Pothos)
     {20, 60, 18.0f, 28.0f, 30, 8, 100, 500},
