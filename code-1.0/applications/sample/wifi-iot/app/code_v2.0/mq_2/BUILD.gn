@@ -1,0 +1,15 @@
+# 配置模块名称为：mq2
+static_library("mq2") {
+
+    # 指定模块源码文件
+    sources = [
+        "mq_2.c"
+    ]
+
+    # 指定模块头文件路径
+    include_dirs = [
+        "//utils/native/lite/include",
+        "//kernel/liteos_m/components/cmsis/2.0",
+        "//base/iot_hardware/interfaces/kits/wifiiot_lite",
+    ]
+}

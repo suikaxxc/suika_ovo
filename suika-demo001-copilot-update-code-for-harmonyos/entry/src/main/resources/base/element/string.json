@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "智能水生植物养殖缸控制模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "基于Hi3861的智能水生植物养殖缸系统，支持自动补水、温控、补光和远程控制"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "智能养殖缸"
+    },
+    {
+      "name": "app_name",
+      "value": "智能水生植物养殖缸"
+    }
+  ]
+}

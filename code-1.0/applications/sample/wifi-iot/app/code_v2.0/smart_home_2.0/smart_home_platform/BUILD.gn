@@ -1,0 +1,22 @@
+static_library("smart_home_platform") {
+    sources = [
+        "demo.c",
+        "wifi_utils.c",
+        "mqtt_test.c",
+        "traffic_light.c",
+        "beeper_music.c",
+        "oled_ssd1306.c",
+        ]
+
+    include_dirs = [
+
+        "//utils/native/lite/include",
+        "//kernel/liteos_m/components/cmsis/2.0",
+        "//base/iot_hardware/interfaces/kits/wifiiot_lite",
+        "//vendor/hisi/hi3861/hi3861/third_party/lwip_sack/include",
+        "//foundation/communication/interfaces/kits/wifi_lite/wifiservice",
+        "//third_party/pahomqtt/MQTTPacket/src",
+        "//third_party/pahomqtt/MQTTPacket/samples",
+        "//vendor\hisi\hi3861\hi3861\components\at\src"
+    ]
+}

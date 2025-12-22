@@ -1,0 +1,11 @@
+# static_library中指定业务模块的编译结果.为静态库文件libmyapp.a,开发者根据实际情况完成填写。
+#sources中指定静态库.a所依赖的.c文件及其路径，若路径中包含"//"则表示绝对路径（此处为代码根路径），若不包含"//"则表示相对路径。
+#include_dirs中指定source所需要依赖的.h文件路径。
+static_library("hello_demo") { 
+    sources = [   
+        "hello_world.c"
+    ]
+    include_dirs = [
+        "//utils/native/lite/include"
+    ]
+}

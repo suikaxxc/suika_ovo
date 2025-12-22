@@ -1,0 +1,22 @@
+# 配置模块名称为：ems
+static_library("ems") {
+
+    # 指定模块源码文件
+    sources = [
+        "main.c",
+        "enrionment_task.c","aht20.c",
+        "oled_task.c","oled_ssd1306.c",
+        "publish_task.c","wifi_util.c","mqtt_util.c",
+    ]
+
+    # 指定模块头文件路径
+    include_dirs = [
+        "//utils/native/lite/include",
+        "//kernel/liteos_m/components/cmsis/2.0",
+        "//base/iot_hardware/interfaces/kits/wifiiot_lite",
+        "//vendor/hisi/hi3861/hi3861/third_party/lwip_sack/include",
+        "//foundation/communication/interfaces/kits/wifi_lite/wifiservice",
+        "//third_party/pahomqtt/MQTTPacket/src",
+        "//third_party/pahomqtt/MQTTPacket/samples",
+    ]
+}

@@ -1,0 +1,44 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "green_128",
+      "value": "#008000"
+    },
+    {
+      "name": "primary_green",
+      "value": "#2E7D32"
+    },
+    {
+      "name": "light_green",
+      "value": "#4CAF50"
+    },
+    {
+      "name": "water_blue",
+      "value": "#2196F3"
+    },
+    {
+      "name": "warning_orange",
+      "value": "#FF9800"
+    },
+    {
+      "name": "danger_red",
+      "value": "#FF5722"
+    },
+    {
+      "name": "cool_cyan",
+      "value": "#00BCD4"
+    },
+    {
+      "name": "light_yellow",
+      "value": "#FFC107"
+    },
+    {
+      "name": "background_gray",
+      "value": "#EEEEEE"
+    }
+  ]
+}
