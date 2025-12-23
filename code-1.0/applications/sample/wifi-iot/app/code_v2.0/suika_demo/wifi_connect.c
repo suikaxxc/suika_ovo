@@ -9,7 +9,9 @@
 
 #include "wifi_device.h"
 #include "lwip/netifapi.h"
+#include "lwip/ip_addr.h"
 #include "lwip/ip4_addr.h"
+#include "lwip/netif.h"
 #include "lwip/err.h"
 
 #include "wifi_connect.h"
@@ -90,16 +92,16 @@ int WiFi_Connect(void)
         for (int i = 0; i < 10; i++)
         {
             sleep(1);
-            if (iface->ip_addr.addr != 0)
+            if (ip4_addr_get_u32(netif_ip4_addr(iface)) != 0)
             {
                 break;
             }
         }
 
-        if (iface->ip_addr.addr != 0)
+        if (ip4_addr_get_u32(netif_ip4_addr(iface)) != 0)
         {
             g_wifi_connected = 1;
-            printf("[WiFi] Connected, IP: %s\n", ip4addr_ntoa(&iface->ip_addr));
+            printf("[WiFi] Connected, IP: %s\n", ip4addr_ntoa(netif_ip4_addr(iface)));
             return 0;
         }
     }
