@@ -266,8 +266,9 @@ static void MQTT_Task(void *arg)
         MQTTPacket_read(buf, buflen, transport_getdata);  // Wait for SUBACK
         printf("[MQTT] Subscribed to control topic\n");
 
-        // Reset ping counter for keep-alive
+        // Reset counters for keep-alive and data publishing
         pingCounter = 0;
+        int publishCounter = 0;
 
         // Main communication loop - run at higher frequency for better responsiveness
         while (g_mqtt_connected)
@@ -298,28 +299,30 @@ static void MQTT_Task(void *arg)
             }
             else if (packetType == -1)
             {
-                // Check if it's a timeout or actual connection loss
-                // Increment ping counter and send PINGREQ periodically
-                pingCounter++;
-                
-                // Send PINGREQ every ~30 seconds (30 loop iterations with 1s timeout each)
-                if (pingCounter >= 30)
+                // Timeout - this is normal, continue processing
+            }
+
+            // Increment counters on every loop iteration
+            pingCounter++;
+            publishCounter++;
+            
+            // Send PINGREQ every ~30 seconds (30 loop iterations with ~1s each)
+            if (pingCounter >= 30)
+            {
+                pingCounter = 0;
+                int pingLen = MQTTSerialize_pingreq(buf, buflen);
+                if (transport_sendPacketBuffer(g_mqtt_socket, buf, pingLen) <= 0)
                 {
-                    pingCounter = 0;
-                    len = MQTTSerialize_pingreq(buf, buflen);
-                    if (transport_sendPacketBuffer(g_mqtt_socket, buf, len) <= 0)
-                    {
-                        printf("[MQTT] Failed to send PINGREQ, connection lost\n");
-                        g_mqtt_connected = 0;
-                        break;
-                    }
+                    printf("[MQTT] Failed to send PINGREQ, connection lost\n");
+                    g_mqtt_connected = 0;
+                    break;
                 }
             }
 
-            // Publish sensor data every 2 seconds (every 2 loop iterations)
-            // Since transport_getdata has 1 second timeout, each loop is ~1 second
-            if (pingCounter % 2 == 0)
+            // Publish sensor data every ~2 seconds (2 loop iterations)
+            if (publishCounter >= 2)
             {
+                publishCounter = 0;
                 PublishSensorData(g_mqtt_socket);
             }
 
