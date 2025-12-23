@@ -3,7 +3,7 @@
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
  * 
- * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
+ * Note: GPIO05 button functionality and ADC include removed - GPIO05 repurposed for fill pump L9110S control
  */
 
 #include <stdio.h>
@@ -39,8 +39,10 @@
 #define PAGE_STATUS 2
 #define PAGE_COUNT 3
 
-// Page auto-switch interval (cycles at 200ms each = 30 seconds per page)
-#define PAGE_AUTO_SWITCH_CYCLES 150
+// Page auto-switch timing
+#define REFRESH_INTERVAL_MS 200
+#define PAGE_SWITCH_INTERVAL_S 30
+#define PAGE_AUTO_SWITCH_CYCLES (PAGE_SWITCH_INTERVAL_S * 1000 / REFRESH_INTERVAL_MS)
 
 static int g_current_page = PAGE_SENSORS;
 static int g_page_cycle_counter = 0;
@@ -164,8 +166,7 @@ static void OledDisplay_Task(void *arg)
     OledInit();
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
-    printf("[OLED] Display initialized\n");
-    printf("[OLED] Note: GPIO05 repurposed for fill pump L9110S control, buttons disabled\n");
+    printf("[OLED] Display initialized (GPIO05 used for pump, buttons disabled)\n");
     sleep(1);
 
     // Note: GPIO05 is now used for fill pump L9110S control
