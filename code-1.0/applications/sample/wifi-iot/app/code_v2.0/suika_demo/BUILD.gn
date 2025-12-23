@@ -15,7 +15,34 @@ static_library("suikaxxc")
 {
     sources = 
     [
-
+        # Main entry point
+        "main.c",
+        
+        # I2C common utilities
+        "i2c_common.c",
+        
+        # Sensor modules
+        "water_level.c",
+        "ds18b20.c",
+        "tds_sensor.c",
+        "light_sensor.c",
+        
+        # Actuator modules
+        "pump_control.c",
+        "temp_control.c",
+        "led_control.c",
+        "alarm.c",
+        
+        # Control logic
+        "tank_control.c",
+        
+        # Display
+        "oled_ssd1306.c",
+        "oled_display.c",
+        
+        # Communication
+        "wifi_connect.c",
+        "mqtt_client.c",
     ]
 
     include_dirs = 
@@ -27,6 +54,7 @@ static_library("suikaxxc")
         "//foundation/communication/interfaces/kits/wifi_lite/wifiservice",
         "//third_party/pahomqtt/MQTTPacket/src",
         "//third_party/pahomqtt/MQTTPacket/samples",
+        "//vendor/hisi/hi3861/hi3861/include",
     ]
 }
 
