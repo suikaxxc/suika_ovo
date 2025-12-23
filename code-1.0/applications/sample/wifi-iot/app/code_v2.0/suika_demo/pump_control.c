@@ -1,14 +1,15 @@
 /**
  * @file pump_control.c
- * @brief Water pump control implementation (L9110S motor driver) for aquatic plant tank
+ * @brief Water pump control implementation for aquatic plant tank
  * 
- * L9110S Motor Driver 1 (Drain Pump):
+ * Note: GPIO08 is now used by DS18B20, so fill pump uses single-pin control
+ * 
+ * Drain Pump (L9110S #1):
  *   - IA (GPIO00) - Forward control
  *   - IB (GPIO01) - Reverse control
  * 
- * L9110S Motor Driver 2 (Fill Pump):
- *   - IA (GPIO06) - Forward control
- *   - IB (GPIO08) - Reverse control
+ * Fill Pump (single transistor/relay control):
+ *   - Control (GPIO06) - ON/OFF control
  */
 
 #include <stdio.h>
@@ -28,11 +29,9 @@
 #define DRAIN_PUMP_IB_GPIO WIFI_IOT_GPIO_IDX_1
 #define DRAIN_PUMP_IB_IO   WIFI_IOT_IO_NAME_GPIO_1
 
-// Fill pump pins (L9110S #2)
-#define FILL_PUMP_IA_GPIO WIFI_IOT_GPIO_IDX_6
-#define FILL_PUMP_IA_IO   WIFI_IOT_IO_NAME_GPIO_6
-#define FILL_PUMP_IB_GPIO WIFI_IOT_GPIO_IDX_8
-#define FILL_PUMP_IB_IO   WIFI_IOT_IO_NAME_GPIO_8
+// Fill pump pin (single control - GPIO08 is now used by DS18B20)
+#define FILL_PUMP_GPIO WIFI_IOT_GPIO_IDX_6
+#define FILL_PUMP_IO   WIFI_IOT_IO_NAME_GPIO_6
 
 static PumpStatus g_drain_pump_status = PUMP_OFF;
 static PumpStatus g_fill_pump_status = PUMP_OFF;
@@ -47,13 +46,10 @@ void Pump_Init(void)
     GpioSetOutputVal(DRAIN_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
     GpioSetOutputVal(DRAIN_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
 
-    // Initialize fill pump pins
-    IoSetFunc(FILL_PUMP_IA_IO, WIFI_IOT_IO_FUNC_GPIO_6_GPIO);
-    IoSetFunc(FILL_PUMP_IB_IO, WIFI_IOT_IO_FUNC_GPIO_8_GPIO);
-    GpioSetDir(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_DIR_OUT);
-    GpioSetDir(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_DIR_OUT);
-    GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
-    GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
+    // Initialize fill pump pin (single GPIO control)
+    IoSetFunc(FILL_PUMP_IO, WIFI_IOT_IO_FUNC_GPIO_6_GPIO);
+    GpioSetDir(FILL_PUMP_GPIO, WIFI_IOT_GPIO_DIR_OUT);
+    GpioSetOutputVal(FILL_PUMP_GPIO, WIFI_IOT_GPIO_VALUE0);
 
     g_drain_pump_status = PUMP_OFF;
     g_fill_pump_status = PUMP_OFF;
@@ -84,16 +80,14 @@ void Pump_SetState(PumpType pump, PumpStatus status)
     {
         if (status == PUMP_ON)
         {
-            // Forward rotation for fill
-            GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE1);
-            GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
+            // Turn on fill pump
+            GpioSetOutputVal(FILL_PUMP_GPIO, WIFI_IOT_GPIO_VALUE1);
             g_fill_pump_status = PUMP_ON;
         }
         else
         {
             // Stop fill pump
-            GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
-            GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
+            GpioSetOutputVal(FILL_PUMP_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_fill_pump_status = PUMP_OFF;
         }
     }

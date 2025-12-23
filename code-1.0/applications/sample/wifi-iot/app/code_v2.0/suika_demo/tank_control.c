@@ -26,27 +26,27 @@
 /**
  * Default parameters for different plant types
  * Format: {waterLevelMin(%), waterLevelMax(%), waterTempMin(C), waterTempMax(C),
- *          lightThreshold(%), lightDuration(hours), tdsMin(ppm), tdsMax(ppm)}
+ *          lightThreshold(lux), lightDuration(hours), tdsMin(ppm), tdsMax(ppm)}
  * Index: 0-Pothos, 1-Water Lily, 2-Pennywort, 3-Water Hyacinth,
  *        4-Lucky Bamboo, 5-Bowl Lotus, 6-Narcissus, 7-Hyacinth
  */
 static const TankParams g_plant_params[] = {
-    // 绿萝 (Pothos)
-    {20, 60, 18.0f, 28.0f, 30, 8, 100, 500},
-    // 睡莲 (Water Lily)
-    {50, 90, 22.0f, 30.0f, 80, 10, 100, 500},
-    // 铜钱草 (Pennywort)
-    {30, 70, 16.0f, 26.0f, 40, 6, 100, 500},
-    // 水葫芦 (Water Hyacinth)
-    {40, 80, 20.0f, 32.0f, 60, 8, 100, 500},
-    // 富贵竹 (Lucky Bamboo)
-    {25, 50, 18.0f, 25.0f, 20, 6, 100, 500},
-    // 碗莲 (Bowl Lotus)
-    {45, 85, 20.0f, 28.0f, 70, 10, 100, 500},
-    // 水仙 (Narcissus)
-    {20, 40, 10.0f, 18.0f, 50, 8, 100, 500},
-    // 风信子 (Hyacinth)
-    {15, 35, 12.0f, 20.0f, 40, 6, 100, 500}
+    // 绿萝 (Pothos) - low light
+    {20, 60, 18.0f, 28.0f, 500, 8, 100, 500},
+    // 睡莲 (Water Lily) - high light
+    {50, 90, 22.0f, 30.0f, 2000, 10, 100, 500},
+    // 铜钱草 (Pennywort) - medium light
+    {30, 70, 16.0f, 26.0f, 800, 6, 100, 500},
+    // 水葫芦 (Water Hyacinth) - high light
+    {40, 80, 20.0f, 32.0f, 1500, 8, 100, 500},
+    // 富贵竹 (Lucky Bamboo) - low light
+    {25, 50, 18.0f, 25.0f, 300, 6, 100, 500},
+    // 碗莲 (Bowl Lotus) - high light
+    {45, 85, 20.0f, 28.0f, 1800, 10, 100, 500},
+    // 水仙 (Narcissus) - medium light
+    {20, 40, 10.0f, 18.0f, 1000, 8, 100, 500},
+    // 风信子 (Hyacinth) - medium light
+    {15, 35, 12.0f, 20.0f, 800, 6, 100, 500}
 };
 
 static TankParams g_current_params = {
@@ -54,7 +54,7 @@ static TankParams g_current_params = {
     .waterLevelMax = 80,
     .waterTempMin = 20.0f,
     .waterTempMax = 28.0f,
-    .lightThreshold = 30,
+    .lightThreshold = 500,   // 500 lux threshold
     .lightDuration = 8,
     .tdsMin = 100,
     .tdsMax = 500

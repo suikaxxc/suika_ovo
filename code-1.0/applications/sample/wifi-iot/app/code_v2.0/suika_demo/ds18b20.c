@@ -1,7 +1,7 @@
 /**
  * @file ds18b20.c
  * @brief DS18B20 temperature sensor implementation for aquatic plant tank
- * Uses GPIO02 for 1-wire communication
+ * Uses GPIO07 for 1-wire communication (avoiding GPIO02 which conflicts with UART0)
  */
 
 #include <stdio.h>
@@ -17,8 +17,10 @@
 
 #include "ds18b20.h"
 
-#define DS18B20_GPIO WIFI_IOT_GPIO_IDX_2
-#define DS18B20_IO_NAME WIFI_IOT_IO_NAME_GPIO_2
+// Changed from GPIO02 to GPIO08 to avoid UART0 conflict
+// GPIO02 is UART0_TX which causes garbled serial output when DS18B20 pulls the line low
+#define DS18B20_GPIO WIFI_IOT_GPIO_IDX_8
+#define DS18B20_IO_NAME WIFI_IOT_IO_NAME_GPIO_8
 
 // DS18B20 Commands
 #define DS18B20_CMD_SKIP_ROM    0xCC
@@ -122,19 +124,21 @@ void DS18B20_Init(void)
 {
     if (g_initialized) return;
     
-    IoSetFunc(DS18B20_IO_NAME, WIFI_IOT_IO_FUNC_GPIO_2_GPIO);
+    // Configure GPIO08 for DS18B20 1-wire communication
+    IoSetFunc(DS18B20_IO_NAME, WIFI_IOT_IO_FUNC_GPIO_8_GPIO);
     IoSetPull(DS18B20_IO_NAME, WIFI_IOT_IO_PULL_UP);
     GpioSetDir(DS18B20_GPIO, WIFI_IOT_GPIO_DIR_OUT);
     
+    // Try to detect sensor
     if (DS18B20_Reset())
     {
         g_sensor_present = 1;
-        printf("[DS18B20] Sensor detected\n");
+        printf("[DS18B20] Sensor detected on GPIO08\n");
     }
     else
     {
         g_sensor_present = 0;
-        printf("[DS18B20] Sensor not found\n");
+        printf("[DS18B20] Sensor not found on GPIO08\n");
     }
     g_initialized = 1;
 }
@@ -146,7 +150,15 @@ void DS18B20_Update(void)
         return;
     }
     
-    if (!g_sensor_present) return;
+    // Skip update if sensor not present
+    if (!g_sensor_present) {
+        // Try to detect again periodically
+        if (DS18B20_Reset()) {
+            g_sensor_present = 1;
+            printf("[DS18B20] Sensor reconnected\n");
+        }
+        return;
+    }
     
     uint8_t temp_lsb, temp_msb;
     int16_t temp_raw;
@@ -177,7 +189,8 @@ void DS18B20_Update(void)
     temp_raw = (int16_t)((temp_msb << 8) | temp_lsb);
     float temp = (float)temp_raw / 16.0f;
     
-    if (temp > -50.0f && temp < 85.0f) {
+    // Validate temperature range (-55 to +125 for DS18B20)
+    if (temp > -55.0f && temp < 125.0f) {
         g_water_temp = temp;
     }
 }

@@ -65,9 +65,8 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "TDS:%dppm", tdsValue);
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Light
-    snprintf(line, lineSize, "Light:%d%%(%d)", lightIntensity,
-             params->lightThreshold);
+    // Line 4: Light intensity in lux
+    snprintf(line, lineSize, "Light:%dlux", lightIntensity);
     OledShowString(0, 4, line, 1);
 
     // Line 5: Alarm status
@@ -160,13 +159,15 @@ static void OledDisplay_Task(void *arg)
     sleep(1);
 
     // Initialize OLED
+    GpioInit();
     OledInit();
     OledFillScreen(0x00);
-    OledShowString(0, 0, "Aquatic Tank", 1);
+    OledShowString(0, 0, "[Sensors]", 1);
     printf("[OLED] Display initialized\n");
     sleep(1);
 
-    // Initialize button ADC
+    // Initialize button - use ADC mode for reading
+    // Button S1/S2 are connected to GPIO05/ADC2
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
     GpioSetDir(WIFI_IOT_GPIO_IDX_5, WIFI_IOT_GPIO_DIR_IN);
     IoSetPull(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_PULL_UP);
@@ -176,15 +177,19 @@ static void OledDisplay_Task(void *arg)
         unsigned short adc_val = 0;
         int currentBtnState = 0;
 
-        // Read button ADC
+        // Read button ADC value
         if (AdcRead(BTN_ADC_CHANNEL, &adc_val,
                     WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
         {
-            if (adc_val < 200)
+            // Button detection thresholds based on voltage divider
+            // S1: pressed = low voltage (< 100)
+            // S2: pressed = medium voltage (400-1200)
+            // None: high voltage (> 3000)
+            if (adc_val < 100)
             {
                 currentBtnState = 1;  // S1 pressed
             }
-            else if (adc_val > 400 && adc_val < 1200)
+            else if (adc_val > 400 && adc_val < 1500)
             {
                 currentBtnState = 2;  // S2 pressed
             }
@@ -194,9 +199,11 @@ static void OledDisplay_Task(void *arg)
             }
         }
 
-        // Handle button press (rising edge)
+        // Handle button press (on press down, not release)
         if (lastBtnState == 0 && currentBtnState != 0)
         {
+            printf("[OLED] Button pressed: S%d (ADC=%d)\n", currentBtnState, adc_val);
+            
             if (currentBtnState == 1)
             {
                 // S1: Switch page
@@ -205,6 +212,7 @@ static void OledDisplay_Task(void *arg)
 
                 const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
                 OledShowString(0, 0, titles[g_current_page], 1);
+                printf("[OLED] Switched to page %d: %s\n", g_current_page, titles[g_current_page]);
             }
             else if (currentBtnState == 2)
             {
@@ -212,10 +220,12 @@ static void OledDisplay_Task(void *arg)
                 if (TankControl_GetMode() == CONTROL_MODE_AUTO)
                 {
                     TankControl_SetMode(CONTROL_MODE_MANUAL);
+                    printf("[OLED] Mode: MANUAL\n");
                 }
                 else
                 {
                     TankControl_SetMode(CONTROL_MODE_AUTO);
+                    printf("[OLED] Mode: AUTO\n");
                 }
             }
         }
@@ -235,7 +245,7 @@ static void OledDisplay_Task(void *arg)
                 break;
         }
 
-        usleep(300000);  // 300ms refresh
+        usleep(200000);  // 200ms refresh for better button response
     }
 }
 
