@@ -2,6 +2,8 @@
  * @file oled_display.c
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
+ * 
+ * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
  */
 
 #include <stdio.h>
@@ -12,7 +14,6 @@
 #include "cmsis_os2.h"
 #include "wifiiot_gpio.h"
 #include "wifiiot_gpio_ex.h"
-#include "wifiiot_adc.h"
 #include "wifiiot_errno.h"
 
 #include "oled_display.h"
@@ -38,10 +39,11 @@
 #define PAGE_STATUS 2
 #define PAGE_COUNT 3
 
-// Button ADC channel (GPIO05/ADC2 - same as display board)
-#define BTN_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_2
+// Page auto-switch interval (cycles at 200ms each = 30 seconds per page)
+#define PAGE_AUTO_SWITCH_CYCLES 150
 
 static int g_current_page = PAGE_SENSORS;
+static int g_page_cycle_counter = 0;
 
 static void RenderSensorPage(char *line, size_t lineSize)
 {
@@ -153,7 +155,6 @@ static void OledDisplay_Task(void *arg)
 {
     (void)arg;
     static char line[32] = {0};
-    int lastBtnState = 0;
 
     // Wait for I2C to be fully initialized
     sleep(1);
@@ -164,72 +165,25 @@ static void OledDisplay_Task(void *arg)
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
     printf("[OLED] Display initialized\n");
+    printf("[OLED] Note: GPIO05 repurposed for fill pump L9110S control, buttons disabled\n");
     sleep(1);
 
-    // Initialize button - use ADC mode for reading
-    // Button S1/S2 are connected to GPIO05/ADC2
-    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
-    GpioSetDir(WIFI_IOT_GPIO_IDX_5, WIFI_IOT_GPIO_DIR_IN);
-    IoSetPull(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_PULL_UP);
+    // Note: GPIO05 is now used for fill pump L9110S control
+    // Button functionality has been removed to free GPIO05
 
     while (1)
     {
-        unsigned short adc_val = 0;
-        int currentBtnState = 0;
-
-        // Read button ADC value
-        if (AdcRead(BTN_ADC_CHANNEL, &adc_val,
-                    WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
+        // Auto-switch pages every PAGE_AUTO_SWITCH_CYCLES cycles (30 seconds)
+        g_page_cycle_counter++;
+        if (g_page_cycle_counter >= PAGE_AUTO_SWITCH_CYCLES)
         {
-            // Button detection thresholds based on voltage divider
-            // S1: pressed = low voltage (< 100)
-            // S2: pressed = medium voltage (400-1200)
-            // None: high voltage (> 3000)
-            if (adc_val < 100)
-            {
-                currentBtnState = 1;  // S1 pressed
-            }
-            else if (adc_val > 400 && adc_val < 1500)
-            {
-                currentBtnState = 2;  // S2 pressed
-            }
-            else
-            {
-                currentBtnState = 0;  // None
-            }
-        }
+            g_page_cycle_counter = 0;
+            g_current_page = (g_current_page + 1) % PAGE_COUNT;
+            OledFillScreen(0x00);
 
-        // Handle button press (on press down, not release)
-        if (lastBtnState == 0 && currentBtnState != 0)
-        {
-            printf("[OLED] Button pressed: S%d (ADC=%d)\n", currentBtnState, adc_val);
-            
-            if (currentBtnState == 1)
-            {
-                // S1: Switch page
-                g_current_page = (g_current_page + 1) % PAGE_COUNT;
-                OledFillScreen(0x00);
-
-                const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
-                OledShowString(0, 0, titles[g_current_page], 1);
-                printf("[OLED] Switched to page %d: %s\n", g_current_page, titles[g_current_page]);
-            }
-            else if (currentBtnState == 2)
-            {
-                // S2: Toggle mode
-                if (TankControl_GetMode() == CONTROL_MODE_AUTO)
-                {
-                    TankControl_SetMode(CONTROL_MODE_MANUAL);
-                    printf("[OLED] Mode: MANUAL\n");
-                }
-                else
-                {
-                    TankControl_SetMode(CONTROL_MODE_AUTO);
-                    printf("[OLED] Mode: AUTO\n");
-                }
-            }
+            const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
+            OledShowString(0, 0, titles[g_current_page], 1);
         }
-        lastBtnState = currentBtnState;
 
         // Render current page
         switch (g_current_page)
@@ -245,7 +199,7 @@ static void OledDisplay_Task(void *arg)
                 break;
         }
 
-        usleep(200000);  // 200ms refresh for better button response
+        usleep(200000);  // 200ms refresh
     }
 }
 

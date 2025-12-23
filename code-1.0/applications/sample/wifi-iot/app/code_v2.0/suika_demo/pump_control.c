@@ -2,14 +2,13 @@
  * @file pump_control.c
  * @brief Water pump control implementation for aquatic plant tank
  * 
- * Note: GPIO08 is now used by DS18B20, so fill pump uses single-pin control
- * 
  * Drain Pump (L9110S #1):
  *   - IA (GPIO00) - Forward control
  *   - IB (GPIO01) - Reverse control
  * 
- * Fill Pump (single transistor/relay control):
- *   - Control (GPIO06) - ON/OFF control
+ * Fill Pump (L9110S #2):
+ *   - IA (GPIO05) - Forward control (originally used for buttons)
+ *   - IB (GPIO06) - Reverse control
  */
 
 #include <stdio.h>
@@ -29,16 +28,18 @@
 #define DRAIN_PUMP_IB_GPIO WIFI_IOT_GPIO_IDX_1
 #define DRAIN_PUMP_IB_IO   WIFI_IOT_IO_NAME_GPIO_1
 
-// Fill pump pin (single control - GPIO08 is now used by DS18B20)
-#define FILL_PUMP_GPIO WIFI_IOT_GPIO_IDX_6
-#define FILL_PUMP_IO   WIFI_IOT_IO_NAME_GPIO_6
+// Fill pump pins (L9110S #2 - GPIO05 repurposed from buttons)
+#define FILL_PUMP_IA_GPIO WIFI_IOT_GPIO_IDX_5
+#define FILL_PUMP_IA_IO   WIFI_IOT_IO_NAME_GPIO_5
+#define FILL_PUMP_IB_GPIO WIFI_IOT_GPIO_IDX_6
+#define FILL_PUMP_IB_IO   WIFI_IOT_IO_NAME_GPIO_6
 
 static PumpStatus g_drain_pump_status = PUMP_OFF;
 static PumpStatus g_fill_pump_status = PUMP_OFF;
 
 void Pump_Init(void)
 {
-    // Initialize drain pump pins
+    // Initialize drain pump pins (L9110S #1)
     IoSetFunc(DRAIN_PUMP_IA_IO, WIFI_IOT_IO_FUNC_GPIO_0_GPIO);
     IoSetFunc(DRAIN_PUMP_IB_IO, WIFI_IOT_IO_FUNC_GPIO_1_GPIO);
     GpioSetDir(DRAIN_PUMP_IA_GPIO, WIFI_IOT_GPIO_DIR_OUT);
@@ -46,15 +47,18 @@ void Pump_Init(void)
     GpioSetOutputVal(DRAIN_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
     GpioSetOutputVal(DRAIN_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
 
-    // Initialize fill pump pin (single GPIO control)
-    IoSetFunc(FILL_PUMP_IO, WIFI_IOT_IO_FUNC_GPIO_6_GPIO);
-    GpioSetDir(FILL_PUMP_GPIO, WIFI_IOT_GPIO_DIR_OUT);
-    GpioSetOutputVal(FILL_PUMP_GPIO, WIFI_IOT_GPIO_VALUE0);
+    // Initialize fill pump pins (L9110S #2 - GPIO05 + GPIO06)
+    IoSetFunc(FILL_PUMP_IA_IO, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
+    IoSetFunc(FILL_PUMP_IB_IO, WIFI_IOT_IO_FUNC_GPIO_6_GPIO);
+    GpioSetDir(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_DIR_OUT);
+    GpioSetDir(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_DIR_OUT);
+    GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
+    GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
 
     g_drain_pump_status = PUMP_OFF;
     g_fill_pump_status = PUMP_OFF;
 
-    printf("[Pump] Initialized\n");
+    printf("[Pump] Initialized (L9110S dual-pin control for both pumps)\n");
 }
 
 void Pump_SetState(PumpType pump, PumpStatus status)
@@ -80,14 +84,16 @@ void Pump_SetState(PumpType pump, PumpStatus status)
     {
         if (status == PUMP_ON)
         {
-            // Turn on fill pump
-            GpioSetOutputVal(FILL_PUMP_GPIO, WIFI_IOT_GPIO_VALUE1);
+            // Forward rotation for fill (L9110S #2)
+            GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE1);
+            GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_fill_pump_status = PUMP_ON;
         }
         else
         {
             // Stop fill pump
-            GpioSetOutputVal(FILL_PUMP_GPIO, WIFI_IOT_GPIO_VALUE0);
+            GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
+            GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_fill_pump_status = PUMP_OFF;
         }
     }
