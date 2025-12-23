@@ -201,6 +201,7 @@ static void MQTT_Task(void *arg)
     (void)arg;
     unsigned char buf[512];
     int buflen = sizeof(buf);
+    int pingCounter = 0;
 
     printf("[MQTT] Task started\n");
 
@@ -263,15 +264,17 @@ static void MQTT_Task(void *arg)
         transport_sendPacketBuffer(g_mqtt_socket, buf, len);
 
         MQTTPacket_read(buf, buflen, transport_getdata);  // Wait for SUBACK
+        printf("[MQTT] Subscribed to control topic\n");
 
-        // Main communication loop
+        // Reset ping counter for keep-alive
+        pingCounter = 0;
+
+        // Main communication loop - run at higher frequency for better responsiveness
         while (g_mqtt_connected)
         {
-            // Publish sensor data every 2 seconds
-            PublishSensorData(g_mqtt_socket);
-
-            // Check for incoming messages (non-blocking with timeout)
+            // Check for incoming messages (transport_getdata has 1 second timeout)
             int packetType = MQTTPacket_read(buf, buflen, transport_getdata);
+            
             if (packetType == PUBLISH)
             {
                 unsigned char dup, retained;
@@ -288,19 +291,47 @@ static void MQTT_Task(void *arg)
                     HandleControlCommand((const char *)payloadIn, payloadInLen);
                 }
             }
+            else if (packetType == PINGRESP)
+            {
+                // Received ping response, connection is alive
+                printf("[MQTT] PINGRESP received\n");
+            }
             else if (packetType == -1)
             {
-                // Connection lost
-                g_mqtt_connected = 0;
-                break;
+                // Check if it's a timeout or actual connection loss
+                // Increment ping counter and send PINGREQ periodically
+                pingCounter++;
+                
+                // Send PINGREQ every ~30 seconds (30 loop iterations with 1s timeout each)
+                if (pingCounter >= 30)
+                {
+                    pingCounter = 0;
+                    len = MQTTSerialize_pingreq(buf, buflen);
+                    if (transport_sendPacketBuffer(g_mqtt_socket, buf, len) <= 0)
+                    {
+                        printf("[MQTT] Failed to send PINGREQ, connection lost\n");
+                        g_mqtt_connected = 0;
+                        break;
+                    }
+                }
             }
 
-            sleep(2);
+            // Publish sensor data every 2 seconds (every 2 loop iterations)
+            // Since transport_getdata has 1 second timeout, each loop is ~1 second
+            if (pingCounter % 2 == 0)
+            {
+                PublishSensorData(g_mqtt_socket);
+            }
+
+            // Short delay to prevent CPU hogging, but keep responsive
+            usleep(100000);  // 100ms
         }
 
+        printf("[MQTT] Disconnected, reconnecting...\n");
         transport_close(g_mqtt_socket);
         g_mqtt_socket = -1;
-        sleep(5);
+        g_mqtt_connected = 0;
+        sleep(2);
     }
 }
 
