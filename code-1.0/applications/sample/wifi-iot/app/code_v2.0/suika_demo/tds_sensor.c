@@ -68,7 +68,6 @@ static int CalculateTDS(unsigned short adcValue, float temperature)
 static void TDS_Task(void *arg)
 {
     (void)arg;
-    GpioInit();
 
     while (1)
     {
@@ -78,7 +77,6 @@ static void TDS_Task(void *arg)
             // Get current water temperature for compensation
             float temp = Get_WaterTemperature();
             g_tds_ppm = CalculateTDS(g_tds_raw, temp);
-            printf("[TDS] raw:%u ppm:%d\n", g_tds_raw, g_tds_ppm);
         }
         sleep(3);
     }
@@ -97,6 +95,6 @@ void TDS_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)TDS_Task, NULL, &attr) == NULL)
     {
-        printf("[TDS] Failed to create task!\n");
+        printf("[TDS] Failed to create task!\r\n");
     }
 }

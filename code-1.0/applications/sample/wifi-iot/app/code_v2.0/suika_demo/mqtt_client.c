@@ -99,8 +99,6 @@ static void PublishSensorData(int socket)
     int len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString,
                                      (unsigned char *)payload, payloadlen);
     transport_sendPacketBuffer(socket, buf, len);
-
-    printf("[MQTT] Published: %s\n", payload);
 }
 
 // Parse and handle control commands from HarmonyOS app
@@ -114,7 +112,7 @@ static void HandleControlCommand(const char *payload, int payloadLen)
     memcpy(cmdBuf, payload, payloadLen);
     cmdBuf[payloadLen] = '\0';
 
-    printf("[MQTT] Received command: %s\n", cmdBuf);
+    printf("[MQTT] Received command: %s\r\n", cmdBuf);
 
     // Parse JSON command
     // Expected format from HarmonyOS app ControlData:
@@ -135,7 +133,7 @@ static void HandleControlCommand(const char *payload, int payloadLen)
         valueStart += 8;  // Skip "\"value\":"
         int value = atoi(valueStart);
 
-        printf("[MQTT] Command type: %s, value: %d\n", cmdType, value);
+        printf("[MQTT] Command type: %s, value: %d\r\n", cmdType, value);
 
         // Handle different command types
         if (strcmp(cmdType, "led") == 0)
@@ -204,7 +202,10 @@ static void MQTT_Task(void *arg)
     unsigned char buf[512];
     int buflen = sizeof(buf);
 
-    printf("[MQTT] Task started\n");
+    printf("[MQTT] Task started\r\n");
+
+    // Wait for system to stabilize before trying WiFi
+    sleep(2);
 
     while (1)
     {
@@ -212,10 +213,10 @@ static void MQTT_Task(void *arg)
         while (!WiFi_IsConnected())
         {
             WiFi_Connect();
-            sleep(5);
+            sleep(10);
         }
 
-        printf("[MQTT] WiFi connected, connecting to MQTT broker...\n");
+        printf("[MQTT] Connecting to broker...\r\n");
 
         // Connect to MQTT broker
         MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
@@ -228,19 +229,16 @@ static void MQTT_Task(void *arg)
         g_mqtt_socket = transport_open((char *)MQTT_HOST, MQTT_PORT);
         if (g_mqtt_socket < 0)
         {
-            printf("[MQTT] Failed to connect to broker\n");
+            printf("[MQTT] Broker connect failed\r\n");
             sleep(10);
             continue;
         }
-
-        printf("[MQTT] Connected to %s:%d\n", MQTT_HOST, MQTT_PORT);
 
         int len = MQTTSerialize_connect(buf, buflen, &data);
         transport_sendPacketBuffer(g_mqtt_socket, buf, len);
 
         if (MQTTPacket_read(buf, buflen, transport_getdata) != CONNACK)
         {
-            printf("[MQTT] CONNACK not received\n");
             transport_close(g_mqtt_socket);
             sleep(10);
             continue;
@@ -249,13 +247,12 @@ static void MQTT_Task(void *arg)
         unsigned char sessionPresent, connack_rc;
         if (MQTTDeserialize_connack(&sessionPresent, &connack_rc, buf, buflen) != 1 || connack_rc != 0)
         {
-            printf("[MQTT] Connection rejected, rc=%d\n", connack_rc);
             transport_close(g_mqtt_socket);
             sleep(10);
             continue;
         }
 
-        printf("[MQTT] MQTT connected successfully\n");
+        printf("[MQTT] Connected\r\n");
         g_mqtt_connected = 1;
 
         // Subscribe to control topic
@@ -265,10 +262,7 @@ static void MQTT_Task(void *arg)
         len = MQTTSerialize_subscribe(buf, buflen, 0, 1, 1, topicFilters, reqQos);
         transport_sendPacketBuffer(g_mqtt_socket, buf, len);
 
-        if (MQTTPacket_read(buf, buflen, transport_getdata) == SUBACK)
-        {
-            printf("[MQTT] Subscribed to %s\n", MQTT_TOPIC_CONTROL);
-        }
+        MQTTPacket_read(buf, buflen, transport_getdata);  // Wait for SUBACK
 
         // Main communication loop
         while (g_mqtt_connected)
@@ -297,7 +291,6 @@ static void MQTT_Task(void *arg)
             else if (packetType == -1)
             {
                 // Connection lost
-                printf("[MQTT] Connection lost\n");
                 g_mqtt_connected = 0;
                 break;
             }
@@ -320,10 +313,10 @@ void MQTT_MainLoop(void)
     attr.cb_size = 0U;
     attr.stack_mem = NULL;
     attr.stack_size = MQTT_TASK_STACK_SIZE;
-    attr.priority = 36;  // Same as reference implementation
+    attr.priority = osPriorityNormal;
 
     if (osThreadNew((osThreadFunc_t)MQTT_Task, NULL, &attr) == NULL)
     {
-        printf("[MQTT] Failed to create task!\n");
+        printf("[MQTT] Failed to create task!\r\n");
     }
 }

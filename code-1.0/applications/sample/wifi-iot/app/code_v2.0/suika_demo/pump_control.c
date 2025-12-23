@@ -39,8 +39,6 @@ static PumpStatus g_fill_pump_status = PUMP_OFF;
 
 void Pump_Init(void)
 {
-    GpioInit();
-
     // Initialize drain pump pins
     IoSetFunc(DRAIN_PUMP_IA_IO, WIFI_IOT_IO_FUNC_GPIO_0_GPIO);
     IoSetFunc(DRAIN_PUMP_IB_IO, WIFI_IOT_IO_FUNC_GPIO_1_GPIO);
@@ -60,7 +58,7 @@ void Pump_Init(void)
     g_drain_pump_status = PUMP_OFF;
     g_fill_pump_status = PUMP_OFF;
 
-    printf("[Pump] Initialized\n");
+    printf("[Pump] Initialized\r\n");
 }
 
 void Pump_SetState(PumpType pump, PumpStatus status)
@@ -73,7 +71,6 @@ void Pump_SetState(PumpType pump, PumpStatus status)
             GpioSetOutputVal(DRAIN_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE1);
             GpioSetOutputVal(DRAIN_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_drain_pump_status = PUMP_ON;
-            printf("[Pump] Drain pump ON\n");
         }
         else
         {
@@ -81,7 +78,6 @@ void Pump_SetState(PumpType pump, PumpStatus status)
             GpioSetOutputVal(DRAIN_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
             GpioSetOutputVal(DRAIN_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_drain_pump_status = PUMP_OFF;
-            printf("[Pump] Drain pump OFF\n");
         }
     }
     else if (pump == PUMP_FILL)
@@ -92,7 +88,6 @@ void Pump_SetState(PumpType pump, PumpStatus status)
             GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE1);
             GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_fill_pump_status = PUMP_ON;
-            printf("[Pump] Fill pump ON\n");
         }
         else
         {
@@ -100,7 +95,6 @@ void Pump_SetState(PumpType pump, PumpStatus status)
             GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
             GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_fill_pump_status = PUMP_OFF;
-            printf("[Pump] Fill pump OFF\n");
         }
     }
 }
@@ -138,5 +132,4 @@ void Pump_StopAll(void)
 {
     Pump_StopDrain();
     Pump_StopFill();
-    printf("[Pump] Emergency stop - all pumps OFF\n");
 }

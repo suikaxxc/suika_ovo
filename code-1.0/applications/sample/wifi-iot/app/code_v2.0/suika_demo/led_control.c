@@ -23,28 +23,24 @@ static int g_led_state = 0;
 
 void LED_Init(void)
 {
-    GpioInit();
-
     IoSetFunc(LED_IO, WIFI_IOT_IO_FUNC_GPIO_3_GPIO);
     GpioSetDir(LED_GPIO, WIFI_IOT_GPIO_DIR_OUT);
     GpioSetOutputVal(LED_GPIO, WIFI_IOT_GPIO_VALUE0);
     g_led_state = 0;
 
-    printf("[LED] Initialized\n");
+    printf("[LED] Initialized\r\n");
 }
 
 void LED_On(void)
 {
     GpioSetOutputVal(LED_GPIO, WIFI_IOT_GPIO_VALUE1);
     g_led_state = 1;
-    printf("[LED] Plant light ON\n");
 }
 
 void LED_Off(void)
 {
     GpioSetOutputVal(LED_GPIO, WIFI_IOT_GPIO_VALUE0);
     g_led_state = 0;
-    printf("[LED] Plant light OFF\n");
 }
 
 int LED_GetState(void)

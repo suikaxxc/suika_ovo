@@ -71,23 +71,21 @@ static ControlMode g_control_mode = CONTROL_MODE_AUTO;
 
 void TankControl_Init(void)
 {
+    // Initialize GPIO first (only once)
+    GpioInit();
+
     // Initialize all actuators
     Pump_Init();
     TempControl_Init();
     LED_Init();
     Alarm_Init();
 
-    printf("[TankControl] Initialized with default parameters\n");
-    printf("[TankControl] WaterLevel: %d-%d%%, Temp: %.1f-%.1fC, Light: %d%%\n",
-           g_current_params.waterLevelMin, g_current_params.waterLevelMax,
-           g_current_params.waterTempMin, g_current_params.waterTempMax,
-           g_current_params.lightThreshold);
+    printf("[TankControl] Initialized\r\n");
 }
 
 void TankControl_SetMode(ControlMode mode)
 {
     g_control_mode = mode;
-    printf("[TankControl] Mode set to: %s\n", mode == CONTROL_MODE_AUTO ? "AUTO" : "MANUAL");
 
     // Stop all actuators when switching to manual mode
     if (mode == CONTROL_MODE_MANUAL)
@@ -108,11 +106,6 @@ void TankControl_SetParams(const TankParams *params)
     if (params != NULL)
     {
         memcpy(&g_current_params, params, sizeof(TankParams));
-        printf("[TankControl] Parameters updated\n");
-        printf("[TankControl] WaterLevel: %d-%d%%, Temp: %.1f-%.1fC, Light: %d%%\n",
-               g_current_params.waterLevelMin, g_current_params.waterLevelMax,
-               g_current_params.waterTempMin, g_current_params.waterTempMax,
-               g_current_params.lightThreshold);
     }
 }
 
@@ -126,7 +119,6 @@ void TankControl_SetPlantType(int plantType)
     if (plantType >= 0 && plantType < 8)
     {
         memcpy(&g_current_params, &g_plant_params[plantType], sizeof(TankParams));
-        printf("[TankControl] Plant type set to %d\n", plantType);
     }
 }
 
@@ -237,8 +229,6 @@ static void AutoWaterLevelControl(int waterLevel)
         if (Pump_GetState(PUMP_FILL) == PUMP_OFF)
         {
             Pump_StartFill();
-            printf("[TankControl] Auto: Starting fill pump (level: %d%% < %d%%)\n",
-                   waterLevel, g_current_params.waterLevelMin);
         }
     }
     else if (waterLevel >= g_current_params.waterLevelMax)
@@ -247,8 +237,6 @@ static void AutoWaterLevelControl(int waterLevel)
         if (Pump_GetState(PUMP_FILL) == PUMP_ON)
         {
             Pump_StopFill();
-            printf("[TankControl] Auto: Stopping fill pump (level: %d%% >= %d%%)\n",
-                   waterLevel, g_current_params.waterLevelMax);
         }
     }
 }
@@ -262,8 +250,6 @@ static void AutoTemperatureControl(float waterTemp)
         if (!Heater_GetState())
         {
             Heater_On();
-            printf("[TankControl] Auto: Heater ON (temp: %.1fC < %.1fC)\n",
-                   waterTemp, g_current_params.waterTempMin);
         }
         if (Fan_GetSpeed() > 0)
         {
@@ -276,8 +262,6 @@ static void AutoTemperatureControl(float waterTemp)
         if (Heater_GetState())
         {
             Heater_Off();
-            printf("[TankControl] Auto: Heater OFF (temp: %.1fC > %.1fC)\n",
-                   waterTemp, g_current_params.waterTempMax);
         }
         // Calculate fan speed based on temperature difference
         float tempDiff = waterTemp - g_current_params.waterTempMax;
@@ -287,7 +271,6 @@ static void AutoTemperatureControl(float waterTemp)
         if (Fan_GetSpeed() != fanSpeed)
         {
             Fan_SetSpeed(fanSpeed);
-            printf("[TankControl] Auto: Fan at %d%% (temp: %.1fC)\n", fanSpeed, waterTemp);
         }
     }
     else
@@ -313,8 +296,6 @@ static void AutoLightControl(int lightIntensity)
         if (!LED_GetState())
         {
             LED_On();
-            printf("[TankControl] Auto: LED ON (light: %d%% < %d%%)\n",
-                   lightIntensity, g_current_params.lightThreshold);
         }
     }
     else
@@ -323,8 +304,6 @@ static void AutoLightControl(int lightIntensity)
         if (LED_GetState())
         {
             LED_Off();
-            printf("[TankControl] Auto: LED OFF (light: %d%% >= %d%%)\n",
-                   lightIntensity, g_current_params.lightThreshold);
         }
     }
 }
@@ -332,8 +311,6 @@ static void AutoLightControl(int lightIntensity)
 static void TankControl_Task(void *arg)
 {
     (void)arg;
-
-    printf("[TankControl] Control task started\n");
 
     while (1)
     {
@@ -372,6 +349,6 @@ void TankControl_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)TankControl_Task, NULL, &attr) == NULL)
     {
-        printf("[TankControl] Failed to create task!\n");
+        printf("[TankControl] Failed to create task!\r\n");
     }
 }

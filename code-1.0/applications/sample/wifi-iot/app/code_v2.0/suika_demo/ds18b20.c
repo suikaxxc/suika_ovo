@@ -155,20 +155,21 @@ static void DS18B20_Task(void *arg)
 {
     (void)arg;
 
-    GpioInit();
     IoSetFunc(DS18B20_IO_NAME, WIFI_IOT_IO_FUNC_GPIO_2_GPIO);
     IoSetPull(DS18B20_IO_NAME, WIFI_IOT_IO_PULL_UP);
+    GpioSetDir(DS18B20_GPIO, WIFI_IOT_GPIO_DIR_OUT);
 
     // Initial sensor check
+    sleep(1);  // Wait for GPIO to stabilize
     if (DS18B20_Reset())
     {
         g_sensor_present = 1;
-        printf("[DS18B20] Sensor detected\n");
+        printf("[DS18B20] Sensor detected\r\n");
     }
     else
     {
         g_sensor_present = 0;
-        printf("[DS18B20] Sensor not found\n");
+        printf("[DS18B20] Sensor not found\r\n");
     }
 
     while (1)
@@ -177,7 +178,6 @@ static void DS18B20_Task(void *arg)
         if (temp > -100.0f)
         {
             g_water_temp = temp;
-            printf("[DS18B20] Water temp: %.1f C\n", g_water_temp);
         }
         sleep(3);
     }
@@ -196,6 +196,6 @@ void DS18B20_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)DS18B20_Task, NULL, &attr) == NULL)
     {
-        printf("[DS18B20] Failed to create task!\n");
+        printf("[DS18B20] Failed to create task!\r\n");
     }
 }

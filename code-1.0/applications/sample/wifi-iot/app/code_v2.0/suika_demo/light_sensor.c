@@ -39,15 +39,13 @@ unsigned short Get_LightRaw(void)
 static void LightSensor_Task(void *arg)
 {
     (void)arg;
-    GpioInit();
 
     while (1)
     {
         if (AdcRead(LIGHT_ADC_CHANNEL, &g_light_raw,
                     WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
         {
-            int pct = Get_LightIntensity();
-            printf("[Light] raw:%u pct:%d%%\n", g_light_raw, pct);
+            // Silent update - reduce serial output
         }
         sleep(2);
     }
@@ -66,6 +64,6 @@ void LightSensor_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)LightSensor_Task, NULL, &attr) == NULL)
     {
-        printf("[LightSensor] Failed to create task!\n");
+        printf("[LightSensor] Failed to create task!\r\n");
     }
 }

@@ -156,12 +156,15 @@ static void OledDisplay_Task(void *arg)
     static char line[32] = {0};
     int lastBtnState = 0;
 
+    // Wait for I2C to be fully initialized
+    sleep(1);
+
     // Initialize OLED
-    GpioInit();
     OledInit();
     OledFillScreen(0x00);
     OledShowString(0, 0, "Aquatic Tank", 1);
-    sleep(2);
+    printf("[OLED] Display initialized\r\n");
+    sleep(1);
 
     // Initialize button ADC
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
@@ -202,7 +205,6 @@ static void OledDisplay_Task(void *arg)
 
                 const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
                 OledShowString(0, 0, titles[g_current_page], 1);
-                printf("[OLED] Switched to page %d\n", g_current_page);
             }
             else if (currentBtnState == 2)
             {
@@ -215,7 +217,6 @@ static void OledDisplay_Task(void *arg)
                 {
                     TankControl_SetMode(CONTROL_MODE_AUTO);
                 }
-                printf("[OLED] Mode toggled\n");
             }
         }
         lastBtnState = currentBtnState;
@@ -251,6 +252,6 @@ void OledDisplay_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)OledDisplay_Task, NULL, &attr) == NULL)
     {
-        printf("[OledDisplay] Failed to create task!\n");
+        printf("[OledDisplay] Failed to create task!\r\n");
     }
 }

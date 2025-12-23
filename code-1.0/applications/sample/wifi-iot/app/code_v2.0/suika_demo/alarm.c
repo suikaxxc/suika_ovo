@@ -30,14 +30,12 @@ static char g_alarm_message[64] = "";
 
 void Alarm_Init(void)
 {
-    GpioInit();
-
     IoSetFunc(BEEPER_IO, WIFI_IOT_IO_FUNC_GPIO_9_PWM0_OUT);
     PwmInit(BEEPER_PWM_PORT);
     g_alarm_level = ALARM_NONE;
     g_alarm_message[0] = '\0';
 
-    printf("[Alarm] Initialized\n");
+    printf("[Alarm] Initialized\r\n");
 }
 
 void Alarm_Trigger(AlarmLevel level, const char *message)
@@ -52,8 +50,6 @@ void Alarm_Trigger(AlarmLevel level, const char *message)
     {
         g_alarm_message[0] = '\0';
     }
-
-    printf("[Alarm] Triggered: level=%d, msg=%s\n", level, g_alarm_message);
 
     if (level == ALARM_WARNING)
     {
@@ -80,7 +76,6 @@ void Alarm_Stop(void)
     PwmStop(BEEPER_PWM_PORT);
     g_alarm_level = ALARM_NONE;
     g_alarm_message[0] = '\0';
-    printf("[Alarm] Stopped\n");
 }
 
 AlarmLevel Alarm_GetLevel(void)

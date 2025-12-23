@@ -38,15 +38,13 @@ unsigned short Get_WaterLevelRaw(void)
 static void WaterLevel_Task(void *arg)
 {
     (void)arg;
-    GpioInit();
 
     while (1)
     {
         if (AdcRead(WATER_LEVEL_ADC_CHANNEL, &g_water_level_raw,
                     WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
         {
-            int pct = Get_WaterLevelPercent();
-            printf("[WaterLevel] raw:%u pct:%d%%\n", g_water_level_raw, pct);
+            // Silent update - reduce serial output
         }
         sleep(2);
     }
@@ -65,6 +63,6 @@ void WaterLevel_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)WaterLevel_Task, NULL, &attr) == NULL)
     {
-        printf("[WaterLevel] Failed to create task!\n");
+        printf("[WaterLevel] Failed to create task!\r\n");
     }
 }
