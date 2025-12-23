@@ -49,7 +49,7 @@ void TempControl_Init(void)
     PwmInit(FAN_PWM_PORT);
     g_fan_speed = 0;
 
-    printf("[TempControl] Initialized\r\n");
+    printf("[TempControl] Initialized\n");
 }
 
 void Heater_On(void)

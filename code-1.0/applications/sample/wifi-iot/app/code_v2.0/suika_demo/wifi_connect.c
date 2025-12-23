@@ -27,7 +27,7 @@ int WiFi_Connect(void)
     WifiDeviceConfig apConfig = {};
     int netId = -1;
 
-    printf("[WiFi] Connecting to %s...\r\n", WIFI_SSID);
+    printf("[WiFi] Connecting to %s...\n", WIFI_SSID);
 
     // Set WiFi parameters
     strcpy(apConfig.ssid, WIFI_SSID);
@@ -38,7 +38,7 @@ int WiFi_Connect(void)
     errCode = EnableWifi();
     if (errCode != WIFI_SUCCESS)
     {
-        printf("[WiFi] EnableWifi failed: %d\r\n", errCode);
+        printf("[WiFi] EnableWifi failed: %d\n", errCode);
         return -1;
     }
 
@@ -60,7 +60,7 @@ int WiFi_Connect(void)
     errCode = AddDeviceConfig(&apConfig, &netId);
     if (errCode != WIFI_SUCCESS)
     {
-        printf("[WiFi] AddDeviceConfig failed: %d\r\n", errCode);
+        printf("[WiFi] AddDeviceConfig failed: %d\n", errCode);
         return -1;
     }
 
@@ -68,7 +68,7 @@ int WiFi_Connect(void)
     errCode = ConnectTo(netId);
     if (errCode != WIFI_SUCCESS)
     {
-        printf("[WiFi] ConnectTo failed: %d\r\n", errCode);
+        printf("[WiFi] ConnectTo failed: %d\n", errCode);
         return -1;
     }
 
@@ -82,7 +82,7 @@ int WiFi_Connect(void)
         err_t ret = netifapi_dhcp_start(iface);
         if (ret != ERR_OK)
         {
-            printf("[WiFi] DHCP start failed: %d\r\n", ret);
+            printf("[WiFi] DHCP start failed: %d\n", ret);
             return -1;
         }
 
@@ -99,12 +99,12 @@ int WiFi_Connect(void)
         if (iface->ip_addr.addr != 0)
         {
             g_wifi_connected = 1;
-            printf("[WiFi] Connected, IP: %s\r\n", ip4addr_ntoa(&iface->ip_addr));
+            printf("[WiFi] Connected, IP: %s\n", ip4addr_ntoa(&iface->ip_addr));
             return 0;
         }
     }
 
-    printf("[WiFi] Failed to get IP address\r\n");
+    printf("[WiFi] Failed to get IP address\n");
     return -1;
 }
 

@@ -58,7 +58,7 @@ void Pump_Init(void)
     g_drain_pump_status = PUMP_OFF;
     g_fill_pump_status = PUMP_OFF;
 
-    printf("[Pump] Initialized\r\n");
+    printf("[Pump] Initialized\n");
 }
 
 void Pump_SetState(PumpType pump, PumpStatus status)

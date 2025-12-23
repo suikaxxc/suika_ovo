@@ -18,7 +18,6 @@
 #include "tds_sensor.h"
 #include "ds18b20.h"
 
-#define TDS_TASK_STACK_SIZE 2048
 #define TDS_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_5  // GPIO11/ADC5
 
 // TDS sensor calibration parameters
@@ -40,9 +39,6 @@ unsigned short Get_TDSRaw(void)
 
 /**
  * @brief Calculate TDS value from ADC reading with temperature compensation
- * @param adcValue Raw ADC value
- * @param temperature Current water temperature in Celsius
- * @return TDS value in ppm
  */
 static int CalculateTDS(unsigned short adcValue, float temperature)
 {
@@ -54,7 +50,6 @@ static int CalculateTDS(unsigned short adcValue, float temperature)
     float compensatedVoltage = voltage / compensationCoeff;
 
     // Convert voltage to TDS (based on typical TDS sensor calibration)
-    // TDS = (133.42 * V^3 - 255.86 * V^2 + 857.39 * V) * 0.5
     float tds = (133.42f * compensatedVoltage * compensatedVoltage * compensatedVoltage
                  - 255.86f * compensatedVoltage * compensatedVoltage
                  + 857.39f * compensatedVoltage) * 0.5f;
@@ -65,36 +60,17 @@ static int CalculateTDS(unsigned short adcValue, float temperature)
     return (int)tds;
 }
 
-static void TDS_Task(void *arg)
+void TDS_Update(void)
 {
-    (void)arg;
-
-    while (1)
+    if (AdcRead(TDS_ADC_CHANNEL, &g_tds_raw,
+                WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
     {
-        if (AdcRead(TDS_ADC_CHANNEL, &g_tds_raw,
-                    WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
-        {
-            // Get current water temperature for compensation
-            float temp = Get_WaterTemperature();
-            g_tds_ppm = CalculateTDS(g_tds_raw, temp);
-        }
-        sleep(3);
+        float temp = Get_WaterTemperature();
+        g_tds_ppm = CalculateTDS(g_tds_raw, temp);
     }
 }
 
 void TDS_MainLoop(void)
 {
-    osThreadAttr_t attr;
-    attr.name = "TDS_Task";
-    attr.attr_bits = 0U;
-    attr.cb_mem = NULL;
-    attr.cb_size = 0U;
-    attr.stack_mem = NULL;
-    attr.stack_size = TDS_TASK_STACK_SIZE;
-    attr.priority = osPriorityNormal;
-
-    if (osThreadNew((osThreadFunc_t)TDS_Task, NULL, &attr) == NULL)
-    {
-        printf("[TDS] Failed to create task!\r\n");
-    }
+    // This function is now a no-op - sensor is polled from control task
 }

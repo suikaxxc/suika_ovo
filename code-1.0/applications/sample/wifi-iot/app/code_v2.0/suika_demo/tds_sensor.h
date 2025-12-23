@@ -11,9 +11,14 @@ extern "C" {
 #endif
 
 /**
- * @brief Initialize and start TDS sensor task
+ * @brief Initialize TDS sensor (no-op, for compatibility)
  */
 void TDS_MainLoop(void);
+
+/**
+ * @brief Update TDS sensor reading (call periodically from control task)
+ */
+void TDS_Update(void);
 
 /**
  * @brief Get current TDS value in ppm

@@ -30,7 +30,7 @@
 #include "alarm.h"
 #include "tank_control.h"
 
-#define MQTT_TASK_STACK_SIZE 8192
+#define MQTT_TASK_STACK_SIZE 4096
 
 // MQTT configuration - modify these for your setup
 // For production, these should be stored in configuration or set at build time
@@ -112,7 +112,7 @@ static void HandleControlCommand(const char *payload, int payloadLen)
     memcpy(cmdBuf, payload, payloadLen);
     cmdBuf[payloadLen] = '\0';
 
-    printf("[MQTT] Received command: %s\r\n", cmdBuf);
+    printf("[MQTT] Received command: %s\n", cmdBuf);
 
     // Parse JSON command
     // Expected format from HarmonyOS app ControlData:
@@ -133,7 +133,7 @@ static void HandleControlCommand(const char *payload, int payloadLen)
         valueStart += 8;  // Skip "\"value\":"
         int value = atoi(valueStart);
 
-        printf("[MQTT] Command type: %s, value: %d\r\n", cmdType, value);
+        printf("[MQTT] Command type: %s, value: %d\n", cmdType, value);
 
         // Handle different command types
         if (strcmp(cmdType, "led") == 0)
@@ -202,7 +202,7 @@ static void MQTT_Task(void *arg)
     unsigned char buf[512];
     int buflen = sizeof(buf);
 
-    printf("[MQTT] Task started\r\n");
+    printf("[MQTT] Task started\n");
 
     // Wait for system to stabilize before trying WiFi
     sleep(2);
@@ -216,7 +216,7 @@ static void MQTT_Task(void *arg)
             sleep(10);
         }
 
-        printf("[MQTT] Connecting to broker...\r\n");
+        printf("[MQTT] Connecting to broker...\n");
 
         // Connect to MQTT broker
         MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
@@ -229,7 +229,7 @@ static void MQTT_Task(void *arg)
         g_mqtt_socket = transport_open((char *)MQTT_HOST, MQTT_PORT);
         if (g_mqtt_socket < 0)
         {
-            printf("[MQTT] Broker connect failed\r\n");
+            printf("[MQTT] Broker connect failed\n");
             sleep(10);
             continue;
         }
@@ -252,7 +252,7 @@ static void MQTT_Task(void *arg)
             continue;
         }
 
-        printf("[MQTT] Connected\r\n");
+        printf("[MQTT] Connected\n");
         g_mqtt_connected = 1;
 
         // Subscribe to control topic
@@ -317,6 +317,6 @@ void MQTT_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)MQTT_Task, NULL, &attr) == NULL)
     {
-        printf("[MQTT] Failed to create task!\r\n");
+        printf("[MQTT] Failed to create task!\n");
     }
 }

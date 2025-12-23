@@ -11,9 +11,14 @@ extern "C" {
 #endif
 
 /**
- * @brief Initialize and start water level sensor task
+ * @brief Initialize water level sensor (no-op, for compatibility)
  */
 void WaterLevel_MainLoop(void);
+
+/**
+ * @brief Update water level reading (call periodically from control task)
+ */
+void WaterLevel_Update(void);
 
 /**
  * @brief Get current water level in percentage (0-100)

@@ -71,16 +71,13 @@ static ControlMode g_control_mode = CONTROL_MODE_AUTO;
 
 void TankControl_Init(void)
 {
-    // Initialize GPIO first (only once)
-    GpioInit();
-
-    // Initialize all actuators
+    // Initialize all actuators (GPIO already initialized in I2C_CommonInit)
     Pump_Init();
     TempControl_Init();
     LED_Init();
     Alarm_Init();
 
-    printf("[TankControl] Initialized\r\n");
+    printf("[TankControl] Initialized\n");
 }
 
 void TankControl_SetMode(ControlMode mode)
@@ -311,9 +308,18 @@ static void AutoLightControl(int lightIntensity)
 static void TankControl_Task(void *arg)
 {
     (void)arg;
+    
+    // Initialize DS18B20 sensor
+    DS18B20_Init();
 
     while (1)
     {
+        // Update all sensor readings
+        WaterLevel_Update();
+        LightSensor_Update();
+        TDS_Update();
+        DS18B20_Update();  // This takes ~750ms for conversion
+        
         // Read all sensor values
         int waterLevel = Get_WaterLevelPercent();
         float waterTemp = Get_WaterTemperature();
@@ -349,6 +355,6 @@ void TankControl_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)TankControl_Task, NULL, &attr) == NULL)
     {
-        printf("[TankControl] Failed to create task!\r\n");
+        printf("[TankControl] Failed to create task!\n");
     }
 }

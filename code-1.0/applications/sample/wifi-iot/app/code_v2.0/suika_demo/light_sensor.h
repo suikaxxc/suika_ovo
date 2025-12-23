@@ -11,9 +11,14 @@ extern "C" {
 #endif
 
 /**
- * @brief Initialize and start light sensor task
+ * @brief Initialize light sensor (no-op, for compatibility)
  */
 void LightSensor_MainLoop(void);
+
+/**
+ * @brief Update light sensor reading (call periodically from control task)
+ */
+void LightSensor_Update(void);
 
 /**
  * @brief Get current light intensity (0-100%)

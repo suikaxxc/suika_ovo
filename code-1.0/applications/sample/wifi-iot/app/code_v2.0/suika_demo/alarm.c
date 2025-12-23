@@ -35,7 +35,7 @@ void Alarm_Init(void)
     g_alarm_level = ALARM_NONE;
     g_alarm_message[0] = '\0';
 
-    printf("[Alarm] Initialized\r\n");
+    printf("[Alarm] Initialized\n");
 }
 
 void Alarm_Trigger(AlarmLevel level, const char *message)

@@ -163,7 +163,7 @@ static void OledDisplay_Task(void *arg)
     OledInit();
     OledFillScreen(0x00);
     OledShowString(0, 0, "Aquatic Tank", 1);
-    printf("[OLED] Display initialized\r\n");
+    printf("[OLED] Display initialized\n");
     sleep(1);
 
     // Initialize button ADC
@@ -252,6 +252,6 @@ void OledDisplay_MainLoop(void)
 
     if (osThreadNew((osThreadFunc_t)OledDisplay_Task, NULL, &attr) == NULL)
     {
-        printf("[OledDisplay] Failed to create task!\r\n");
+        printf("[OledDisplay] Failed to create task!\n");
     }
 }

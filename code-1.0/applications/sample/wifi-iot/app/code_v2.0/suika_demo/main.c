@@ -1,9 +1,6 @@
 /**
  * @file main.c
  * @brief Main entry point for Smart Aquatic Plant Tank System
- * 
- * This is the hardware control firmware for a smart water plant cultivation tank
- * based on Hi3861 SoC. It integrates with a HarmonyOS mobile app via MQTT.
  */
 
 #include <stdio.h>
@@ -13,11 +10,8 @@
 
 #include "ohos_init.h"
 #include "cmsis_os2.h"
-#include "wifiiot_i2c.h"
 #include "wifiiot_gpio.h"
 #include "wifiiot_gpio_ex.h"
-#include "wifiiot_adc.h"
-#include "wifiiot_errno.h"
 
 // Module headers
 #include "i2c_common.h"
@@ -34,36 +28,25 @@
 static void AquaticTank_Task(void *arg)
 {
     (void)arg;
-
-    // Wait for system to stabilize after boot
+    
+    // Wait for system to stabilize
     sleep(1);
-
-    printf("\r\n");
-    printf("============================================\r\n");
-    printf("  Smart Aquatic Plant Tank System v1.0     \r\n");
-    printf("  Based on Hi3861 + HarmonyOS              \r\n");
-    printf("============================================\r\n");
-    printf("\r\n");
+    
+    printf("Smart Aquatic Tank System Starting...\n");
 
     // Initialize tank control system (actuators)
     TankControl_Init();
 
-    // Start sensor tasks (each creates its own thread)
-    WaterLevel_MainLoop();    // Water level sensor
-    DS18B20_MainLoop();       // Temperature sensor
-    TDS_MainLoop();           // TDS water quality sensor
-    LightSensor_MainLoop();   // Light sensor
-
     // Start OLED display task
     OledDisplay_MainLoop();
 
-    // Start control logic task
+    // Start control logic task (includes sensor polling)
     TankControl_MainLoop();
 
-    // Start MQTT communication task (includes WiFi connection)
+    // Start MQTT communication task
     MQTT_MainLoop();
 
-    printf("[Main] All tasks started successfully\r\n");
+    printf("All tasks started\n");
 }
 
 static void MainTask(void)
@@ -82,7 +65,7 @@ static void MainTask(void)
 
     if (osThreadNew((osThreadFunc_t)AquaticTank_Task, NULL, &attr) == NULL)
     {
-        printf("[Main] Failed to create AquaticTank_Task!\r\n");
+        printf("Failed to create AquaticTank_Task!\n");
     }
 }
 

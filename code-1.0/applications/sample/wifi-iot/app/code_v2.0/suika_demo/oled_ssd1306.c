@@ -171,7 +171,7 @@ void OledShowString(uint8_t x, uint8_t y, const char *str, Font font)
     uint8_t j = 0;
     if (str == NULL)
     {
-        printf("param is NULL,Please check!!!\r\n");
+        printf("param is NULL,Please check!!!\n");
         return;
     }
 

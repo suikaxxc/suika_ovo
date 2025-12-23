@@ -17,7 +17,6 @@
 
 #include "light_sensor.h"
 
-#define LIGHT_SENSOR_TASK_STACK_SIZE 2048
 #define LIGHT_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_0  // GPIO12/ADC0
 
 static unsigned short g_light_raw = 0;
@@ -36,34 +35,13 @@ unsigned short Get_LightRaw(void)
     return g_light_raw;
 }
 
-static void LightSensor_Task(void *arg)
+void LightSensor_Update(void)
 {
-    (void)arg;
-
-    while (1)
-    {
-        if (AdcRead(LIGHT_ADC_CHANNEL, &g_light_raw,
-                    WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
-        {
-            // Silent update - reduce serial output
-        }
-        sleep(2);
-    }
+    AdcRead(LIGHT_ADC_CHANNEL, &g_light_raw,
+            WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0);
 }
 
 void LightSensor_MainLoop(void)
 {
-    osThreadAttr_t attr;
-    attr.name = "LightSensor_Task";
-    attr.attr_bits = 0U;
-    attr.cb_mem = NULL;
-    attr.cb_size = 0U;
-    attr.stack_mem = NULL;
-    attr.stack_size = LIGHT_SENSOR_TASK_STACK_SIZE;
-    attr.priority = osPriorityNormal;
-
-    if (osThreadNew((osThreadFunc_t)LightSensor_Task, NULL, &attr) == NULL)
-    {
-        printf("[LightSensor] Failed to create task!\r\n");
-    }
+    // This function is now a no-op - sensor is polled from control task
 }

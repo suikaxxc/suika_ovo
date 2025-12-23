@@ -17,7 +17,6 @@
 
 #include "ds18b20.h"
 
-#define DS18B20_TASK_STACK_SIZE 2048
 #define DS18B20_GPIO WIFI_IOT_GPIO_IDX_2
 #define DS18B20_IO_NAME WIFI_IOT_IO_NAME_GPIO_2
 
@@ -28,6 +27,7 @@
 
 static float g_water_temp = 25.0f;
 static int g_sensor_present = 0;
+static int g_initialized = 0;
 
 float Get_WaterTemperature(void)
 {
@@ -118,17 +118,44 @@ static uint8_t DS18B20_ReadByte(void)
     return data;
 }
 
-static float DS18B20_ReadTemperature(void)
+void DS18B20_Init(void)
 {
+    if (g_initialized) return;
+    
+    IoSetFunc(DS18B20_IO_NAME, WIFI_IOT_IO_FUNC_GPIO_2_GPIO);
+    IoSetPull(DS18B20_IO_NAME, WIFI_IOT_IO_PULL_UP);
+    GpioSetDir(DS18B20_GPIO, WIFI_IOT_GPIO_DIR_OUT);
+    
+    if (DS18B20_Reset())
+    {
+        g_sensor_present = 1;
+        printf("[DS18B20] Sensor detected\n");
+    }
+    else
+    {
+        g_sensor_present = 0;
+        printf("[DS18B20] Sensor not found\n");
+    }
+    g_initialized = 1;
+}
+
+void DS18B20_Update(void)
+{
+    if (!g_initialized) {
+        DS18B20_Init();
+        return;
+    }
+    
+    if (!g_sensor_present) return;
+    
     uint8_t temp_lsb, temp_msb;
     int16_t temp_raw;
 
     if (!DS18B20_Reset())
     {
         g_sensor_present = 0;
-        return -127.0f;
+        return;
     }
-    g_sensor_present = 1;
 
     DS18B20_WriteByte(DS18B20_CMD_SKIP_ROM);
     DS18B20_WriteByte(DS18B20_CMD_CONVERT_T);
@@ -138,7 +165,7 @@ static float DS18B20_ReadTemperature(void)
 
     if (!DS18B20_Reset())
     {
-        return -127.0f;
+        return;
     }
 
     DS18B20_WriteByte(DS18B20_CMD_SKIP_ROM);
@@ -148,54 +175,14 @@ static float DS18B20_ReadTemperature(void)
     temp_msb = DS18B20_ReadByte();
 
     temp_raw = (int16_t)((temp_msb << 8) | temp_lsb);
-    return (float)temp_raw / 16.0f;
-}
-
-static void DS18B20_Task(void *arg)
-{
-    (void)arg;
-
-    IoSetFunc(DS18B20_IO_NAME, WIFI_IOT_IO_FUNC_GPIO_2_GPIO);
-    IoSetPull(DS18B20_IO_NAME, WIFI_IOT_IO_PULL_UP);
-    GpioSetDir(DS18B20_GPIO, WIFI_IOT_GPIO_DIR_OUT);
-
-    // Initial sensor check
-    sleep(1);  // Wait for GPIO to stabilize
-    if (DS18B20_Reset())
-    {
-        g_sensor_present = 1;
-        printf("[DS18B20] Sensor detected\r\n");
-    }
-    else
-    {
-        g_sensor_present = 0;
-        printf("[DS18B20] Sensor not found\r\n");
-    }
-
-    while (1)
-    {
-        float temp = DS18B20_ReadTemperature();
-        if (temp > -100.0f)
-        {
-            g_water_temp = temp;
-        }
-        sleep(3);
+    float temp = (float)temp_raw / 16.0f;
+    
+    if (temp > -50.0f && temp < 85.0f) {
+        g_water_temp = temp;
     }
 }
 
 void DS18B20_MainLoop(void)
 {
-    osThreadAttr_t attr;
-    attr.name = "DS18B20_Task";
-    attr.attr_bits = 0U;
-    attr.cb_mem = NULL;
-    attr.cb_size = 0U;
-    attr.stack_mem = NULL;
-    attr.stack_size = DS18B20_TASK_STACK_SIZE;
-    attr.priority = osPriorityNormal;
-
-    if (osThreadNew((osThreadFunc_t)DS18B20_Task, NULL, &attr) == NULL)
-    {
-        printf("[DS18B20] Failed to create task!\r\n");
-    }
+    // This function is now a no-op - sensor is polled from control task
 }

@@ -28,7 +28,7 @@ void LED_Init(void)
     GpioSetOutputVal(LED_GPIO, WIFI_IOT_GPIO_VALUE0);
     g_led_state = 0;
 
-    printf("[LED] Initialized\r\n");
+    printf("[LED] Initialized\n");
 }
 
 void LED_On(void)

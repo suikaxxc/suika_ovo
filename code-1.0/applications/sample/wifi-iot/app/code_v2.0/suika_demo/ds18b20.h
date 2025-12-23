@@ -13,9 +13,19 @@ extern "C" {
 #include <stdint.h>
 
 /**
- * @brief Initialize and start DS18B20 temperature sensor task
+ * @brief Initialize DS18B20 sensor (no-op, for compatibility)
  */
 void DS18B20_MainLoop(void);
+
+/**
+ * @brief Initialize DS18B20 sensor GPIO
+ */
+void DS18B20_Init(void);
+
+/**
+ * @brief Update temperature reading (call periodically from control task)
+ */
+void DS18B20_Update(void);
 
 /**
  * @brief Get current water temperature in Celsius
