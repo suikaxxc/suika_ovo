@@ -75,6 +75,7 @@ static void PublishSensorData(int socket)
     int ledStatus = LED_GetState();
     AlarmLevel alarmLevel = Alarm_GetLevel();
     const char *alarmMsg = Alarm_GetMessage();
+    int controlMode = (TankControl_GetMode() == CONTROL_MODE_MANUAL) ? 1 : 0;
 
     // Build JSON payload matching HarmonyOS app MqttData interface
     snprintf(payload, sizeof(payload),
@@ -89,11 +90,12 @@ static void PublishSensorData(int socket)
              "\"fanSpeed\":%d,"
              "\"ledStatus\":%d,"
              "\"alarmStatus\":%d,"
-             "\"alarmMessage\":\"%s\""
+             "\"alarmMessage\":\"%s\","
+             "\"controlMode\":%d"
              "}",
              waterLevel, waterTemp, lightIntensity, tdsValue,
              pumpStatus, waterPumpStatus, heaterStatus, fanSpeed, ledStatus,
-             (int)alarmLevel, alarmMsg);
+             (int)alarmLevel, alarmMsg, controlMode);
 
     int payloadlen = strlen(payload);
     int len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString,

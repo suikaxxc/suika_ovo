@@ -19,6 +19,7 @@ interface MqttData {
   ledStatus?: number;
   alarmStatus?: number;
   alarmMessage?: string;
+  controlMode?: number;
 }
 
 interface ControlData {
@@ -70,6 +71,10 @@ struct Index {
             this.item.ledStatus = receivedData.ledStatus ?? this.item.ledStatus;
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
+            // 同步硬件端的控制模式到app，确保模式状态一致
+            if (receivedData.controlMode !== undefined) {
+              this.item.controlMode = receivedData.controlMode;
+            }
             this.item.wifiStatus = 1; // 收到数据说明已连接
             this.item.lastUpdateTime = new Date().toLocaleTimeString();
           } catch (e) {
