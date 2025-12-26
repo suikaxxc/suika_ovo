@@ -35,7 +35,7 @@
 
 // MQTT configuration - modify these for your setup
 // For production, these should be stored in configuration or set at build time
-#define MQTT_HOST "192.168.1.100"  // MQTT broker address
+#define MQTT_HOST "192.168.42.169"  // MQTT broker address
 #define MQTT_PORT 1883
 #define MQTT_CLIENT_ID "hi3861_aquatic_tank"
 #define MQTT_USERNAME "mqtt_user"

@@ -18,8 +18,8 @@
 
 // WiFi configuration - modify these for your network
 // For production, these should be stored in configuration or set at build time
-#define WIFI_SSID "your_wifi_ssid"
-#define WIFI_PASSWORD "your_wifi_password"
+#define WIFI_SSID "suika2025"
+#define WIFI_PASSWORD "957957957"
 
 static int g_wifi_connected = 0;
 
