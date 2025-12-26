@@ -45,6 +45,10 @@ struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
+  // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
+  private lastModeChangeTime: number = 0;
+  // 模式同步防抖时间（毫秒）- 在用户切换模式后的这段时间内，不从硬件同步模式
+  private static readonly MODE_SYNC_DEBOUNCE_MS: number = 5000;
 
   aboutToAppear(): void {
     // 初始化默认植物参数（绿萝）
@@ -72,8 +76,13 @@ struct Index {
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
             // 同步硬件端的控制模式到app，确保模式状态一致
+            // 但要防止用户刚切换模式后被硬件的旧状态覆盖（防抖机制）
             if (receivedData.controlMode !== undefined) {
-              this.item.controlMode = receivedData.controlMode;
+              const now = Date.now();
+              // 只有在用户最后切换模式超过5秒后，才从硬件同步模式
+              if (now - this.lastModeChangeTime > Index.MODE_SYNC_DEBOUNCE_MS) {
+                this.item.controlMode = receivedData.controlMode;
+              }
             }
             this.item.wifiStatus = 1; // 收到数据说明已连接
             this.item.lastUpdateTime = new Date().toLocaleTimeString();
@@ -110,6 +119,10 @@ struct Index {
   }
 
   handleControlChange(controlType: string, value: number): void {
+    // 如果是模式切换，记录时间戳用于防抖
+    if (controlType === 'mode') {
+      this.lastModeChangeTime = Date.now();
+    }
     // 发送控制指令到Hi3861设备
     const controlData: ControlData = {
       type: controlType,

@@ -1,7 +1,11 @@
 /**
  * @file alarm.c
  * @brief Alarm (beeper) control implementation for aquatic plant tank
- * Uses PWM0 (GPIO09) for beeper control
+ * Uses GPIO09 for active beeper control (LOW = ON, HIGH = OFF)
+ * 
+ * Note: This is for an ACTIVE buzzer with low-level trigger.
+ * Active buzzers have built-in oscillators and only need DC voltage.
+ * LOW level triggers the buzzer, HIGH level stops it.
  */
 
 #include <stdio.h>
@@ -12,30 +16,41 @@
 #include "cmsis_os2.h"
 #include "wifiiot_gpio.h"
 #include "wifiiot_gpio_ex.h"
-#include "wifiiot_pwm.h"
 #include "wifiiot_errno.h"
 
 #include "alarm.h"
 
-// Beeper control pin (PWM0/GPIO09)
+// Beeper control pin (GPIO09)
 #define BEEPER_GPIO WIFI_IOT_GPIO_IDX_9
 #define BEEPER_IO   WIFI_IOT_IO_NAME_GPIO_9
-#define BEEPER_PWM_PORT WIFI_IOT_PWM_PORT_PWM0
-
-// Beeper frequency divisor for ~2700Hz (typical beeper resonance)
-#define BEEPER_FREQ_DIVISOR 34052
 
 static AlarmLevel g_alarm_level = ALARM_NONE;
 static char g_alarm_message[64] = "";
 
 void Alarm_Init(void)
 {
-    IoSetFunc(BEEPER_IO, WIFI_IOT_IO_FUNC_GPIO_9_PWM0_OUT);
-    PwmInit(BEEPER_PWM_PORT);
+    // Configure GPIO09 as output for active buzzer control
+    IoSetFunc(BEEPER_IO, WIFI_IOT_IO_FUNC_GPIO_9_GPIO);
+    GpioSetDir(BEEPER_GPIO, WIFI_IOT_GPIO_DIR_OUT);
+    // Start with buzzer OFF (HIGH = OFF for active-low buzzer)
+    GpioSetOutputVal(BEEPER_GPIO, WIFI_IOT_GPIO_VALUE1);
+    
     g_alarm_level = ALARM_NONE;
     g_alarm_message[0] = '\0';
 
-    printf("[Alarm] Initialized\n");
+    printf("[Alarm] Initialized (active-low buzzer)\n");
+}
+
+// Turn buzzer ON (LOW level for active-low buzzer)
+static void Beeper_On(void)
+{
+    GpioSetOutputVal(BEEPER_GPIO, WIFI_IOT_GPIO_VALUE0);
+}
+
+// Turn buzzer OFF (HIGH level for active-low buzzer)
+static void Beeper_Off(void)
+{
+    GpioSetOutputVal(BEEPER_GPIO, WIFI_IOT_GPIO_VALUE1);
 }
 
 void Alarm_Trigger(AlarmLevel level, const char *message)
@@ -54,18 +69,18 @@ void Alarm_Trigger(AlarmLevel level, const char *message)
     if (level == ALARM_WARNING)
     {
         // Short beep for warning
-        PwmStart(BEEPER_PWM_PORT, BEEPER_FREQ_DIVISOR / 2, BEEPER_FREQ_DIVISOR);
+        Beeper_On();
         usleep(500000);  // 500ms
-        PwmStop(BEEPER_PWM_PORT);
+        Beeper_Off();
     }
     else if (level == ALARM_DANGER)
     {
         // Continuous beeping for danger
         for (int i = 0; i < 5; i++)
         {
-            PwmStart(BEEPER_PWM_PORT, BEEPER_FREQ_DIVISOR / 2, BEEPER_FREQ_DIVISOR);
+            Beeper_On();
             usleep(200000);  // 200ms
-            PwmStop(BEEPER_PWM_PORT);
+            Beeper_Off();
             usleep(100000);  // 100ms pause
         }
     }
@@ -73,7 +88,7 @@ void Alarm_Trigger(AlarmLevel level, const char *message)
 
 void Alarm_Stop(void)
 {
-    PwmStop(BEEPER_PWM_PORT);
+    Beeper_Off();
     g_alarm_level = ALARM_NONE;
     g_alarm_message[0] = '\0';
 }
@@ -90,7 +105,7 @@ const char* Alarm_GetMessage(void)
 
 void Alarm_Beep(void)
 {
-    PwmStart(BEEPER_PWM_PORT, BEEPER_FREQ_DIVISOR / 2, BEEPER_FREQ_DIVISOR);
+    Beeper_On();
     usleep(100000);  // 100ms beep
-    PwmStop(BEEPER_PWM_PORT);
+    Beeper_Off();
 }
