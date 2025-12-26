@@ -3,7 +3,8 @@
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
  * 
- * Note: GPIO05 button functionality and ADC include removed - GPIO05 repurposed for fill pump L9110S control
+ * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
+ * OLED page flip is now controlled via MQTT command from HarmonyOS app
  */
 
 #include <stdio.h>
@@ -39,25 +40,25 @@
 #define PAGE_STATUS 2
 #define PAGE_COUNT 3
 
-// Page auto-switch timing
+// Display refresh interval
 #define REFRESH_INTERVAL_MS 200
-#define PAGE_SWITCH_INTERVAL_S 30
-#define PAGE_AUTO_SWITCH_CYCLES (PAGE_SWITCH_INTERVAL_S * 1000 / REFRESH_INTERVAL_MS)
 
 static int g_current_page = PAGE_SENSORS;
-static int g_page_cycle_counter = 0;
+static int g_page_changed = 0;  // Flag to indicate page change request
 
 static void RenderSensorPage(char *line, size_t lineSize)
 {
-    int waterLevel = Get_WaterLevelPercent();
+    int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
     int lightIntensity = Get_LightIntensity();
     const TankParams *params = TankControl_GetParams();
 
-    // Line 1: Water Level
-    snprintf(line, lineSize, "WL:%d%%(%d-%d)", waterLevel,
-             params->waterLevelMin, params->waterLevelMax);
+    // Line 1: Water Level in mm (YW01 sensor: 0-90mm)
+    // Convert params from percentage to mm for display (max 90mm)
+    int minMM = (params->waterLevelMin * 90) / 100;
+    int maxMM = (params->waterLevelMax * 90) / 100;
+    snprintf(line, lineSize, "WL:%dmm(%d-%d)", waterLevelMM, minMM, maxMM);
     OledShowString(0, 1, line, 1);
 
     // Line 2: Water Temperature
@@ -166,24 +167,23 @@ static void OledDisplay_Task(void *arg)
     OledInit();
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
-    printf("[OLED] Display initialized (GPIO05 used for pump, buttons disabled)\n");
+    printf("[OLED] Display initialized (manual page flip via MQTT)\n");
     sleep(1);
 
-    // Note: GPIO05 is now used for fill pump L9110S control
-    // Button functionality has been removed to free GPIO05
+    // Note: Auto page switching removed
+    // Page flip is now controlled via MQTT command from HarmonyOS app
 
     while (1)
     {
-        // Auto-switch pages every PAGE_AUTO_SWITCH_CYCLES cycles (30 seconds)
-        g_page_cycle_counter++;
-        if (g_page_cycle_counter >= PAGE_AUTO_SWITCH_CYCLES)
+        // Check if page change was requested via OledDisplay_NextPage()
+        if (g_page_changed)
         {
-            g_page_cycle_counter = 0;
-            g_current_page = (g_current_page + 1) % PAGE_COUNT;
+            g_page_changed = 0;
             OledFillScreen(0x00);
 
             const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
             OledShowString(0, 0, titles[g_current_page], 1);
+            printf("[OLED] Page changed to: %s\n", titles[g_current_page]);
         }
 
         // Render current page
@@ -202,6 +202,18 @@ static void OledDisplay_Task(void *arg)
 
         usleep(200000);  // 200ms refresh
     }
+}
+
+void OledDisplay_NextPage(void)
+{
+    g_current_page = (g_current_page + 1) % PAGE_COUNT;
+    g_page_changed = 1;
+    printf("[OLED] NextPage requested, switching to page %d\n", g_current_page);
+}
+
+int OledDisplay_GetCurrentPage(void)
+{
+    return g_current_page;
 }
 
 void OledDisplay_MainLoop(void)

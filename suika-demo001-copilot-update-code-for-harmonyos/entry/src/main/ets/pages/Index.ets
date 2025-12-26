@@ -98,8 +98,8 @@ struct Index {
   }
 
   initMockData(): void {
-    // 模拟传感器初始数据
-    this.item.waterLevel = 55;
+    // 模拟传感器初始数据 (水位单位: mm, YW01传感器范围0-90mm)
+    this.item.waterLevel = 50;  // 50mm
     this.item.waterTemp = 24;
     this.item.lightIntensity = 450;
     this.item.tdsValue = 280;

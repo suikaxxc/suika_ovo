@@ -282,6 +282,47 @@ export struct ControlComponent {
         .padding(12)
         .backgroundColor('#E0F7FA')
         .borderRadius(10)
+
+        // OLED翻页按钮
+        Row() {
+          Row() {
+            Image($r('app.media.settings'))
+              .width(28)
+              .height(28)
+            Column() {
+              Text("OLED显示屏")
+                .fontSize(14)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#333333')
+              Text("点击切换显示页面")
+                .fontSize(12)
+                .fontColor('#999999')
+            }
+            .alignItems(HorizontalAlign.Start)
+            .margin({ left: 12 })
+          }
+
+          Blank()
+
+          Button("翻页")
+            .fontSize(14)
+            .fontColor(Color.White)
+            .backgroundColor('#607D8B')
+            .height(32)
+            .width(70)
+            .borderRadius(16)
+            .onClick(() => {
+              this.onControlChange('oledPage', 1);
+              promptAction.showToast({
+                message: '已发送OLED翻页指令',
+                duration: 1000
+              });
+            })
+        }
+        .width('100%')
+        .padding(12)
+        .backgroundColor('#ECEFF1')
+        .borderRadius(10)
       }
 
       // 手动模式提示

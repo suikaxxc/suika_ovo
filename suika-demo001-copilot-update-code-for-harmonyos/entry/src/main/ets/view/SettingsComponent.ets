@@ -26,8 +26,8 @@ export struct SettingsComponent {
   // 使用@State变量存储推荐参数，确保UI能够正确更新
   @State recommendedWaterTempMin: number = 18;
   @State recommendedWaterTempMax: number = 28;
-  @State recommendedWaterLevelMin: number = 20;
-  @State recommendedWaterLevelMax: number = 60;
+  @State recommendedWaterLevelMin: number = 18;  // 单位: mm (YW01传感器范围0-90mm)
+  @State recommendedWaterLevelMax: number = 54;  // 单位: mm
   @State recommendedLightThreshold: number = 300;
   @State recommendedLightDuration: number = 8;
   @State plantDescription: string = "";
@@ -55,9 +55,10 @@ export struct SettingsComponent {
     this.recommendedWaterTempMin = params.waterTempMin;
     this.recommendedWaterTempMax = params.waterTempMax;
 
-    // 水位、光照阈值、补光时长根据生长阶段调整
+    // 水位(mm)、光照阈值、补光时长根据生长阶段调整
+    // YW01传感器范围0-90mm
     this.recommendedWaterLevelMin = Math.round(params.waterLevelMin * adjustment);
-    this.recommendedWaterLevelMax = Math.min(100, Math.round(params.waterLevelMax * adjustment));
+    this.recommendedWaterLevelMax = Math.min(90, Math.round(params.waterLevelMax * adjustment));
     this.recommendedLightThreshold = Math.round(params.lightThreshold * adjustment);
     this.recommendedLightDuration = Math.round(params.lightDuration * adjustment);
     this.plantDescription = params.description;
@@ -159,12 +160,12 @@ export struct SettingsComponent {
           .alignItems(HorizontalAlign.Center)
           .padding(8)
 
-          // 水位范围
+          // 水位范围 (单位: mm, YW01传感器范围0-90mm)
           Column() {
             Text("水位范围")
               .fontSize(11)
               .fontColor('#999999')
-            Text(`${this.recommendedWaterLevelMin}-${this.recommendedWaterLevelMax}%`)
+            Text(`${this.recommendedWaterLevelMin}-${this.recommendedWaterLevelMax}mm`)
               .fontSize(13)
               .fontWeight(FontWeight.Medium)
               .fontColor('#2196F3')

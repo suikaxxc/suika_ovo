@@ -29,6 +29,7 @@
 #include "led_control.h"
 #include "alarm.h"
 #include "tank_control.h"
+#include "oled_display.h"
 
 #define MQTT_TASK_STACK_SIZE 4096
 
@@ -61,8 +62,8 @@ static void PublishSensorData(int socket)
     MQTTString topicString = MQTTString_initializer;
     topicString.cstring = MQTT_TOPIC_DATA;
 
-    // Get all sensor values
-    int waterLevel = Get_WaterLevelPercent();
+    // Get all sensor values - water level now in mm (0-90mm for YW01 sensor)
+    int waterLevel = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int lightIntensity = Get_LightIntensity();
     int tdsValue = Get_TDSValue();
@@ -78,6 +79,7 @@ static void PublishSensorData(int socket)
     int controlMode = (TankControl_GetMode() == CONTROL_MODE_MANUAL) ? 1 : 0;
 
     // Build JSON payload matching HarmonyOS app MqttData interface
+    // Note: waterLevel is now in mm (0-90) instead of percentage
     snprintf(payload, sizeof(payload),
              "{"
              "\"waterLevel\":%d,"
@@ -161,6 +163,11 @@ static void HandleControlCommand(const char *payload, int payloadLen)
         else if (strcmp(cmdType, "mode") == 0)
         {
             TankControl_SetMode(value == 0 ? CONTROL_MODE_AUTO : CONTROL_MODE_MANUAL);
+        }
+        else if (strcmp(cmdType, "oledPage") == 0)
+        {
+            // OLED page flip command from app
+            OledDisplay_NextPage();
         }
         else if (strcmp(cmdType, "plant") == 0)
         {
