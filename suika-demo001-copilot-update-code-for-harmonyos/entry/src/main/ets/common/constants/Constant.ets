@@ -126,8 +126,8 @@ export const PlantParamsConfig: PlantParams[] = [
   }
 ];
 
-// 服务器IP
-const HOST_IP = '10.0.2.2'
+// 服务器IP（必须与硬件端mqtt_client.c中的MQTT_HOST保持一致）
+const HOST_IP = '192.168.42.169'
 
 // MQTT服务端地址（需要tcp://协议前缀）
 export const MQTT_URL = `tcp://${HOST_IP}:1883`
