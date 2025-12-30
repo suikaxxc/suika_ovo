@@ -159,12 +159,14 @@ static void OledDisplay_Task(void *arg)
     (void)arg;
     static char line[32] = {0};
 
-    // Wait for I2C to be fully initialized
-    sleep(1);
+    // Wait for I2C to be fully initialized (I2C_CommonInit() in main.c)
+    sleep(2);
 
-    // Initialize OLED
-    GpioInit();
-    OledInit();
+    // Initialize OLED (I2C0 already initialized in I2C_CommonInit)
+    uint32_t ret = OledInit();
+    if (ret != 0) {
+        printf("[OLED] OledInit failed with error: %u\n", ret);
+    }
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
     printf("[OLED] Display initialized (manual page flip via MQTT)\n");
