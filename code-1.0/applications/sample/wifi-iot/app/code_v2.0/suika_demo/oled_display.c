@@ -43,8 +43,12 @@
 // Display refresh interval
 #define REFRESH_INTERVAL_MS 200
 
+// I2C initialization delay (wait for I2C_CommonInit to complete)
+#define I2C_INIT_DELAY_SEC 2
+
 static int g_current_page = PAGE_SENSORS;
 static int g_page_changed = 0;  // Flag to indicate page change request
+static int g_oled_initialized = 0;  // Flag to track OLED init status
 
 static void RenderSensorPage(char *line, size_t lineSize)
 {
@@ -160,13 +164,20 @@ static void OledDisplay_Task(void *arg)
     static char line[32] = {0};
 
     // Wait for I2C to be fully initialized (I2C_CommonInit() in main.c)
-    sleep(2);
+    sleep(I2C_INIT_DELAY_SEC);
 
     // Initialize OLED (I2C0 already initialized in I2C_CommonInit)
     uint32_t ret = OledInit();
     if (ret != 0) {
-        printf("[OLED] OledInit failed with error: %u\n", ret);
+        printf("[OLED] OledInit failed with error: %u, OLED display disabled\n", ret);
+        g_oled_initialized = 0;
+        // Continue running but skip OLED operations
+        while (1) {
+            sleep(1);
+        }
     }
+    
+    g_oled_initialized = 1;
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
     printf("[OLED] Display initialized (manual page flip via MQTT)\n");
@@ -202,7 +213,7 @@ static void OledDisplay_Task(void *arg)
                 break;
         }
 
-        usleep(200000);  // 200ms refresh
+        usleep(REFRESH_INTERVAL_MS * 1000);  // Convert ms to us
     }
 }
 
