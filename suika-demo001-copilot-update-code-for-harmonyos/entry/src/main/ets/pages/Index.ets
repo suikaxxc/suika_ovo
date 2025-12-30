@@ -47,8 +47,11 @@ struct Index {
   private mqttUtil: MQTTUtil = new MQTTUtil();
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
+  // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
+  private lastControlCommandTime: number = 0;
   // 模式同步防抖时间（毫秒）- 在用户切换模式后的这段时间内，不从硬件同步模式
-  private static readonly MODE_SYNC_DEBOUNCE_MS: number = 5000;
+  // 增加到10秒以确保命令有足够时间到达硬件并生效
+  private static readonly MODE_SYNC_DEBOUNCE_MS: number = 10000;
 
   aboutToAppear(): void {
     // 初始化默认植物参数（绿萝）
@@ -76,11 +79,13 @@ struct Index {
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
             // 同步硬件端的控制模式到app，确保模式状态一致
-            // 但要防止用户刚切换模式后被硬件的旧状态覆盖（防抖机制）
+            // 但要防止用户刚切换模式或发送控制命令后被硬件的旧状态覆盖（防抖机制）
             if (receivedData.controlMode !== undefined) {
               const now = Date.now();
-              // 只有在用户最后切换模式超过5秒后，才从硬件同步模式
-              if (now - this.lastModeChangeTime > Index.MODE_SYNC_DEBOUNCE_MS) {
+              // 只有在用户最后操作超过防抖时间后，才从硬件同步模式
+              // 检查模式切换和控制命令两个时间戳，取最近的一个
+              const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
+              if (now - lastUserAction > Index.MODE_SYNC_DEBOUNCE_MS) {
                 this.item.controlMode = receivedData.controlMode;
               }
             }
@@ -119,15 +124,20 @@ struct Index {
   }
 
   handleControlChange(controlType: string, value: number): void {
-    // 如果是模式切换，记录时间戳用于防抖
+    // 记录用户操作时间戳，用于防抖机制
+    const now = Date.now();
     if (controlType === 'mode') {
-      this.lastModeChangeTime = Date.now();
+      // 模式切换记录专用时间戳
+      this.lastModeChangeTime = now;
+    } else if (controlType !== 'oledPage') {
+      // 非翻页的控制命令也记录时间戳，防止在手动操作期间被自动模式覆盖
+      this.lastControlCommandTime = now;
     }
     // 发送控制指令到Hi3861设备
     const controlData: ControlData = {
       type: controlType,
       value: value,
-      timestamp: Date.now()
+      timestamp: now
     };
     console.info('发送控制指令:', JSON.stringify(controlData));
     // 通过MQTT发送控制指令到硬件端
