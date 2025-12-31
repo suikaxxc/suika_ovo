@@ -200,7 +200,16 @@ static void HandleControlCommand(const char *payload, int payloadLen)
             ptr = strstr(cmdBuf, "\"lightDuration\":");
             if (ptr) params.lightDuration = atoi(ptr + 16);
 
+            ptr = strstr(cmdBuf, "\"tdsMin\":");
+            if (ptr) params.tdsMin = atoi(ptr + 9);
+
+            ptr = strstr(cmdBuf, "\"tdsMax\":");
+            if (ptr) params.tdsMax = atoi(ptr + 9);
+
             TankControl_SetParams(&params);
+            printf("[MQTT] Settings updated: TempMin=%.1f, TempMax=%.1f, WaterMin=%d, WaterMax=%d\n",
+                   params.waterTempMin, params.waterTempMax, 
+                   params.waterLevelMin, params.waterLevelMax);
         }
     }
 }

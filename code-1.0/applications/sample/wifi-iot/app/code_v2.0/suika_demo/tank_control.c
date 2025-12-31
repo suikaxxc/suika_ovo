@@ -238,10 +238,49 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
         return;
     }
 
-    // TDS (water quality) check
+    // TDS (water quality) check - critical level
     if (tdsValue >= TDS_CRITICAL_HIGH)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water quality poor: %dppm", tdsValue);
+        Alarm_Trigger(ALARM_WARNING, alarmMsg);
+        return;
+    }
+
+    // Plant-specific threshold checks (warnings, not critical)
+    // These check against user-configured thresholds from app settings
+    
+    // Temperature above plant's max threshold
+    if (waterTemp > g_current_params.waterTempMax)
+    {
+        snprintf(alarmMsg, sizeof(alarmMsg), "Temp high: %.1fC (max %.1f)", 
+                 waterTemp, g_current_params.waterTempMax);
+        Alarm_Trigger(ALARM_WARNING, alarmMsg);
+        return;
+    }
+    
+    // Temperature below plant's min threshold
+    if (waterTemp < g_current_params.waterTempMin)
+    {
+        snprintf(alarmMsg, sizeof(alarmMsg), "Temp low: %.1fC (min %.1f)", 
+                 waterTemp, g_current_params.waterTempMin);
+        Alarm_Trigger(ALARM_WARNING, alarmMsg);
+        return;
+    }
+    
+    // TDS above plant's max threshold
+    if (tdsValue > g_current_params.tdsMax)
+    {
+        snprintf(alarmMsg, sizeof(alarmMsg), "TDS high: %dppm (max %d)", 
+                 tdsValue, g_current_params.tdsMax);
+        Alarm_Trigger(ALARM_WARNING, alarmMsg);
+        return;
+    }
+    
+    // TDS below plant's min threshold
+    if (tdsValue < g_current_params.tdsMin && tdsValue > 0)
+    {
+        snprintf(alarmMsg, sizeof(alarmMsg), "TDS low: %dppm (min %d)", 
+                 tdsValue, g_current_params.tdsMin);
         Alarm_Trigger(ALARM_WARNING, alarmMsg);
         return;
     }
