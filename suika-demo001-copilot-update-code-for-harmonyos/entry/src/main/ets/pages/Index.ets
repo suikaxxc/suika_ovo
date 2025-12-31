@@ -66,26 +66,28 @@ struct Index {
         if (!err && data?.payload) {
           try {
             const receivedData: MqttData = JSON.parse(String(data.payload));
-            // 更新传感器数据，保留用户设置
+            const now = Date.now();
+            // 计算用户最后一次操作的时间
+            const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
+            const isDebouncing = (now - lastUserAction) < Index.MODE_SYNC_DEBOUNCE_MS;
+
+            // 更新传感器数据（这些始终更新）
             this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
             this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
             this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
             this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
-            this.item.pumpStatus = receivedData.pumpStatus ?? this.item.pumpStatus;
-            this.item.waterPumpStatus = receivedData.waterPumpStatus ?? this.item.waterPumpStatus;
-            this.item.heaterStatus = receivedData.heaterStatus ?? this.item.heaterStatus;
-            this.item.fanSpeed = receivedData.fanSpeed ?? this.item.fanSpeed;
-            this.item.ledStatus = receivedData.ledStatus ?? this.item.ledStatus;
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
-            // 同步硬件端的控制模式到app，确保模式状态一致
-            // 但要防止用户刚切换模式或发送控制命令后被硬件的旧状态覆盖（防抖机制）
-            if (receivedData.controlMode !== undefined) {
-              const now = Date.now();
-              // 只有在用户最后操作超过防抖时间后，才从硬件同步模式
-              // 检查模式切换和控制命令两个时间戳，取最近的一个
-              const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
-              if (now - lastUserAction > Index.MODE_SYNC_DEBOUNCE_MS) {
+
+            // 执行器状态：只在非防抖期间从硬件同步，防止用户手动控制被覆盖
+            if (!isDebouncing) {
+              this.item.pumpStatus = receivedData.pumpStatus ?? this.item.pumpStatus;
+              this.item.waterPumpStatus = receivedData.waterPumpStatus ?? this.item.waterPumpStatus;
+              this.item.heaterStatus = receivedData.heaterStatus ?? this.item.heaterStatus;
+              this.item.fanSpeed = receivedData.fanSpeed ?? this.item.fanSpeed;
+              this.item.ledStatus = receivedData.ledStatus ?? this.item.ledStatus;
+              // 控制模式也在非防抖期间同步
+              if (receivedData.controlMode !== undefined) {
                 this.item.controlMode = receivedData.controlMode;
               }
             }

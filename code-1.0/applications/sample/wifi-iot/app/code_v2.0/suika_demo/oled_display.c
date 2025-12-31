@@ -217,8 +217,23 @@ static void OledDisplay_Task(void *arg)
     }
 }
 
+// Debounce for page flip - minimum time between page changes in OS ticks
+#define PAGE_CHANGE_DEBOUNCE_TICKS 5  // ~500ms at 100ms per tick
+
 void OledDisplay_NextPage(void)
 {
+    // Simple time-based debounce using OS tick count
+    static uint32_t last_change_tick = 0;
+    uint32_t current_tick = osKernelGetTickCount();
+    
+    // Debounce: ignore if less than debounce ticks since last change
+    if (last_change_tick != 0 && (current_tick - last_change_tick) < PAGE_CHANGE_DEBOUNCE_TICKS) {
+        printf("[OLED] NextPage ignored - debouncing (delta=%u ticks)\n", 
+               (unsigned int)(current_tick - last_change_tick));
+        return;
+    }
+    
+    last_change_tick = current_tick;
     g_current_page = (g_current_page + 1) % PAGE_COUNT;
     g_page_changed = 1;
     printf("[OLED] NextPage requested, switching to page %d\n", g_current_page);
