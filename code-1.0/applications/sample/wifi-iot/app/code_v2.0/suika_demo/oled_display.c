@@ -111,8 +111,8 @@ static void RenderActuatorPage(char *line, size_t lineSize)
              Heater_GetState() ? "ON " : "OFF");
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Fan
-    snprintf(line, lineSize, "Fan: %d%%", Fan_GetSpeed());
+    // Line 4: Fan (no percent symbol per user request)
+    snprintf(line, lineSize, "Fan: %d", Fan_GetSpeed());
     OledShowString(0, 4, line, 1);
 
     // Line 5: LED

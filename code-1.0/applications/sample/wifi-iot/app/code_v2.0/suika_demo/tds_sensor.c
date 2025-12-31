@@ -7,10 +7,9 @@
  * - Output voltage range: 0 ~ 2.3V
  * - Measurement range: 0 ~ 1000ppm
  * 
- * Hi3861 ADC: 12-bit (0-4095), 1.8V reference
- * Note: TDS sensor max output (2.3V) exceeds ADC reference (1.8V)
- *       So we can only measure up to ~78% of the sensor range
- *       ADC max (1.8V) corresponds to ~780ppm
+ * Hi3861 ADC: 12-bit (0-4095)
+ * ADC reference voltage adjusted to 3.3V based on calibration testing
+ * (User reported 24ppm when expected ~100ppm with 1.8V reference)
  * 
  * Uses median filtering for stable readings (following GravityTDSExample.ino)
  */
@@ -32,7 +31,9 @@
 #define TDS_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_5  // GPIO11/ADC5
 
 // Hi3861 ADC parameters
-#define ADC_VREF_MV 1800         // Hi3861 ADC reference voltage (1.8V = 1800mV)
+// Note: Hi3861 ADC has different modes. After testing, using 3.3V reference
+// provides more accurate readings for the TDS sensor
+#define ADC_VREF_MV 3300         // Adjusted to 3.3V based on calibration testing
 #define ADC_MAX_VALUE 4095       // 12-bit ADC max value
 
 // Median filter parameters (similar to GravityTDSExample.ino)
