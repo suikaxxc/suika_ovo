@@ -199,17 +199,24 @@ void TankControl_ManualFan(int speed)
 }
 
 // Check for safety conditions and trigger alarms
+// Note: In MANUAL mode, only triggers alarms but does NOT control actuators
+// This ensures manual mode has highest priority
 static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
 {
     char alarmMsg[64] = "";
+    int isManualMode = (g_control_mode == CONTROL_MODE_MANUAL);
 
     // Critical water level check
     if (waterLevel <= WATER_LEVEL_CRITICAL_LOW)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water level critical: %d%%", waterLevel);
         Alarm_Trigger(ALARM_DANGER, alarmMsg);
-        Pump_StopDrain();  // Prevent dry running
-        Heater_Off();      // Prevent dry burning
+        // Only control actuators in AUTO mode - manual mode has priority
+        if (!isManualMode)
+        {
+            Pump_StopDrain();  // Prevent dry running
+            Heater_Off();      // Prevent dry burning
+        }
         return;
     }
 
@@ -217,7 +224,11 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water level too high: %d%%", waterLevel);
         Alarm_Trigger(ALARM_WARNING, alarmMsg);
-        Pump_StopFill();
+        // Only control actuators in AUTO mode
+        if (!isManualMode)
+        {
+            Pump_StopFill();
+        }
         return;
     }
 
@@ -226,8 +237,12 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water temp critical: %.1fC", waterTemp);
         Alarm_Trigger(ALARM_DANGER, alarmMsg);
-        Heater_Off();
-        Fan_SetSpeed(100);  // Maximum cooling
+        // Only control actuators in AUTO mode - manual mode has priority
+        if (!isManualMode)
+        {
+            Heater_Off();
+            Fan_SetSpeed(100);  // Maximum cooling
+        }
         return;
     }
 
@@ -242,45 +257,6 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
     if (tdsValue >= TDS_CRITICAL_HIGH)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water quality poor: %dppm", tdsValue);
-        Alarm_Trigger(ALARM_WARNING, alarmMsg);
-        return;
-    }
-
-    // Plant-specific threshold checks (warnings, not critical)
-    // These check against user-configured thresholds from app settings
-    
-    // Temperature above plant's max threshold
-    if (waterTemp > g_current_params.waterTempMax)
-    {
-        snprintf(alarmMsg, sizeof(alarmMsg), "Temp high: %.1fC (max %.1f)", 
-                 waterTemp, g_current_params.waterTempMax);
-        Alarm_Trigger(ALARM_WARNING, alarmMsg);
-        return;
-    }
-    
-    // Temperature below plant's min threshold
-    if (waterTemp < g_current_params.waterTempMin)
-    {
-        snprintf(alarmMsg, sizeof(alarmMsg), "Temp low: %.1fC (min %.1f)", 
-                 waterTemp, g_current_params.waterTempMin);
-        Alarm_Trigger(ALARM_WARNING, alarmMsg);
-        return;
-    }
-    
-    // TDS above plant's max threshold
-    if (tdsValue > g_current_params.tdsMax)
-    {
-        snprintf(alarmMsg, sizeof(alarmMsg), "TDS high: %dppm (max %d)", 
-                 tdsValue, g_current_params.tdsMax);
-        Alarm_Trigger(ALARM_WARNING, alarmMsg);
-        return;
-    }
-    
-    // TDS below plant's min threshold
-    if (tdsValue < g_current_params.tdsMin && tdsValue > 0)
-    {
-        snprintf(alarmMsg, sizeof(alarmMsg), "TDS low: %dppm (min %d)", 
-                 tdsValue, g_current_params.tdsMin);
         Alarm_Trigger(ALARM_WARNING, alarmMsg);
         return;
     }
