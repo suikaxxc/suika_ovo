@@ -50,8 +50,8 @@ struct Index {
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
   private lastControlCommandTime: number = 0;
   // 模式同步防抖时间（毫秒）- 在用户切换模式后的这段时间内，不从硬件同步模式
-  // 增加到10秒以确保命令有足够时间到达硬件并生效
-  private static readonly MODE_SYNC_DEBOUNCE_MS: number = 10000;
+  // 增加到30秒以确保手动模式不会被意外覆盖
+  private static readonly MODE_SYNC_DEBOUNCE_MS: number = 30000;
 
   aboutToAppear(): void {
     // 初始化默认植物参数（绿萝）
@@ -90,6 +90,10 @@ struct Index {
               if (receivedData.controlMode !== undefined) {
                 this.item.controlMode = receivedData.controlMode;
               }
+            } else {
+              // 防抖期间，记录日志但不同步执行器状态和控制模式
+              console.info('防抖中: 忽略硬件状态同步，剩余时间=' + 
+                (Index.MODE_SYNC_DEBOUNCE_MS - (now - lastUserAction)) + 'ms');
             }
             this.item.wifiStatus = 1; // 收到数据说明已连接
             this.item.lastUpdateTime = new Date().toLocaleTimeString();
