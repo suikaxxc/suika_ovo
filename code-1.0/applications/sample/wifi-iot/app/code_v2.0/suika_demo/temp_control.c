@@ -3,10 +3,14 @@
  * @brief Temperature control implementation (heater and PWM fan) for aquatic plant tank
  * 
  * Heater: GPIO10 (digital control) - Active LOW (LOW=ON, HIGH=OFF)
- * Fan: PWM5 (GPIO14) - Using PWM for variable speed control - Active LOW
+ * Fan: GPIO04/PWM1 - Using PWM for variable speed control - Active LOW
  * 
  * Note: Since GPIO14 is used for I2C0_SCL in OLED display,
  * we use GPIO04/PWM1 for fan control instead
+ * 
+ * PWM Configuration (compared with STM32 reference):
+ *   - STM32: TIM2, 72MHz/720/100 = 1kHz, Active-HIGH (TIM_OCPolarity_High)
+ *   - Hi3861: PWM1, 160MHz/40000 = 4kHz, Active-LOW (inverted duty)
  * 
  * IMPORTANT: Both heater and fan use active-low logic:
  *   - LOW level (GPIO_VALUE0) = Device ON/Running
@@ -82,20 +86,34 @@ void Fan_SetSpeed(int speedPercent)
 
     g_fan_speed = speedPercent;
 
-    // For active-low logic: 
+    // Hi3861 PWM API: duty cycle = duty/freq, frequency = 160MHz/freq
+    // With freq=40000: PWM frequency = 160MHz/40000 = 4kHz
+    // 
+    // For active-low logic (like STM32 reference with inverted polarity):
     // - 0% speed = 100% duty cycle (always HIGH = OFF)
-    // - 100% speed = 0% duty cycle (always LOW = full ON)
-    // So we invert: duty = (100 - speedPercent)%
-    int invertedPercent = 100 - speedPercent;
-    uint16_t duty = (uint16_t)((FAN_PWM_FREQ * invertedPercent) / 100);
+    // - 100% speed = ~0% duty cycle (always LOW = full ON)
+    // 
+    // Note: duty must be in range [1, 65535], so we use 1 as minimum instead of 0
+    // This means 100% speed is actually 99.9975% duty (duty=1/freq=40000)
     
     if (speedPercent == 0)
     {
-        // Full stop: 100% HIGH (all off)
+        // Full stop: 100% duty (all HIGH = off)
         PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ);
+    }
+    else if (speedPercent >= 100)
+    {
+        // Full speed: minimum duty (almost all LOW = full on)
+        // Use duty=1 instead of 0 to stay within valid range [1, 65535]
+        PwmStart(FAN_PWM_PORT, 1, FAN_PWM_FREQ);
     }
     else
     {
+        // Variable speed: invert duty for active-low
+        // speedPercent 1-99 maps to duty (freq-1) down to 2
+        int invertedPercent = 100 - speedPercent;
+        uint16_t duty = (uint16_t)((FAN_PWM_FREQ * invertedPercent) / 100);
+        if (duty < 1) duty = 1;  // Ensure duty is at least 1
         PwmStart(FAN_PWM_PORT, duty, FAN_PWM_FREQ);
     }
 }
