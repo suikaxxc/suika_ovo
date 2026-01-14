@@ -126,76 +126,74 @@ void TankControl_SetPlantType(int plantType)
 }
 
 // Manual control functions
+// Note: These functions execute commands immediately without checking g_control_mode
+// because the app UI already enforces manual mode by disabling buttons.
+// This avoids race conditions where the mode command hasn't arrived yet.
 void TankControl_ManualLED(int on)
 {
-    printf("[TankControl] ManualLED called: on=%d, mode=%d\n", on, g_control_mode);
-    if (g_control_mode == CONTROL_MODE_MANUAL)
+    printf("[TankControl] ManualLED called: on=%d\n", on);
+    // Force switch to manual mode when receiving manual control commands
+    if (g_control_mode != CONTROL_MODE_MANUAL)
     {
-        if (on) LED_On();
-        else LED_Off();
-        printf("[TankControl] LED set to %s\n", on ? "ON" : "OFF");
+        printf("[TankControl] Auto-switching to MANUAL mode\n");
+        g_control_mode = CONTROL_MODE_MANUAL;
     }
-    else
-    {
-        printf("[TankControl] ManualLED ignored - not in manual mode\n");
-    }
+    if (on) LED_On();
+    else LED_Off();
+    printf("[TankControl] LED set to %s\n", on ? "ON" : "OFF");
 }
 
 void TankControl_ManualFillPump(int on)
 {
-    printf("[TankControl] ManualFillPump called: on=%d, mode=%d\n", on, g_control_mode);
-    if (g_control_mode == CONTROL_MODE_MANUAL)
+    printf("[TankControl] ManualFillPump called: on=%d\n", on);
+    // Force switch to manual mode when receiving manual control commands
+    if (g_control_mode != CONTROL_MODE_MANUAL)
     {
-        Pump_SetState(PUMP_FILL, on ? PUMP_ON : PUMP_OFF);
-        printf("[TankControl] Fill pump set to %s\n", on ? "ON" : "OFF");
+        printf("[TankControl] Auto-switching to MANUAL mode\n");
+        g_control_mode = CONTROL_MODE_MANUAL;
     }
-    else
-    {
-        printf("[TankControl] ManualFillPump ignored - not in manual mode\n");
-    }
+    Pump_SetState(PUMP_FILL, on ? PUMP_ON : PUMP_OFF);
+    printf("[TankControl] Fill pump set to %s\n", on ? "ON" : "OFF");
 }
 
 void TankControl_ManualDrainPump(int on)
 {
-    printf("[TankControl] ManualDrainPump called: on=%d, mode=%d\n", on, g_control_mode);
-    if (g_control_mode == CONTROL_MODE_MANUAL)
+    printf("[TankControl] ManualDrainPump called: on=%d\n", on);
+    // Force switch to manual mode when receiving manual control commands
+    if (g_control_mode != CONTROL_MODE_MANUAL)
     {
-        Pump_SetState(PUMP_DRAIN, on ? PUMP_ON : PUMP_OFF);
-        printf("[TankControl] Drain pump set to %s\n", on ? "ON" : "OFF");
+        printf("[TankControl] Auto-switching to MANUAL mode\n");
+        g_control_mode = CONTROL_MODE_MANUAL;
     }
-    else
-    {
-        printf("[TankControl] ManualDrainPump ignored - not in manual mode\n");
-    }
+    Pump_SetState(PUMP_DRAIN, on ? PUMP_ON : PUMP_OFF);
+    printf("[TankControl] Drain pump set to %s\n", on ? "ON" : "OFF");
 }
 
 void TankControl_ManualHeater(int on)
 {
-    printf("[TankControl] ManualHeater called: on=%d, mode=%d\n", on, g_control_mode);
-    if (g_control_mode == CONTROL_MODE_MANUAL)
+    printf("[TankControl] ManualHeater called: on=%d\n", on);
+    // Force switch to manual mode when receiving manual control commands
+    if (g_control_mode != CONTROL_MODE_MANUAL)
     {
-        if (on) Heater_On();
-        else Heater_Off();
-        printf("[TankControl] Heater set to %s\n", on ? "ON" : "OFF");
+        printf("[TankControl] Auto-switching to MANUAL mode\n");
+        g_control_mode = CONTROL_MODE_MANUAL;
     }
-    else
-    {
-        printf("[TankControl] ManualHeater ignored - not in manual mode\n");
-    }
+    if (on) Heater_On();
+    else Heater_Off();
+    printf("[TankControl] Heater set to %s\n", on ? "ON" : "OFF");
 }
 
 void TankControl_ManualFan(int speed)
 {
-    printf("[TankControl] ManualFan called: speed=%d, mode=%d\n", speed, g_control_mode);
-    if (g_control_mode == CONTROL_MODE_MANUAL)
+    printf("[TankControl] ManualFan called: speed=%d\n", speed);
+    // Force switch to manual mode when receiving manual control commands
+    if (g_control_mode != CONTROL_MODE_MANUAL)
     {
-        Fan_SetSpeed(speed);
-        printf("[TankControl] Fan speed set to %d%%\n", speed);
+        printf("[TankControl] Auto-switching to MANUAL mode\n");
+        g_control_mode = CONTROL_MODE_MANUAL;
     }
-    else
-    {
-        printf("[TankControl] ManualFan ignored - not in manual mode\n");
-    }
+    Fan_SetSpeed(speed);
+    printf("[TankControl] Fan speed set to %d%%\n", speed);
 }
 
 // Check for safety conditions and trigger alarms
