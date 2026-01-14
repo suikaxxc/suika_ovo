@@ -48,12 +48,21 @@ void Pump_Init(void)
     GpioSetOutputVal(DRAIN_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
 
     // Initialize fill pump pins (L9110S #2 - GPIO05 + GPIO06)
+    // Note: GPIO05 is connected to onboard button on some Hi3861 OLED boards
+    // We must disable the internal pull-up to avoid conflicts with button circuit
     IoSetFunc(FILL_PUMP_IA_IO, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
     IoSetFunc(FILL_PUMP_IB_IO, WIFI_IOT_IO_FUNC_GPIO_6_GPIO);
+    
+    // Disable internal pull-up/pull-down on GPIO05 (may have external pull-up from button)
+    IoSetPull(FILL_PUMP_IA_IO, WIFI_IOT_IO_PULL_NONE);
+    IoSetPull(FILL_PUMP_IB_IO, WIFI_IOT_IO_PULL_NONE);
+    
     GpioSetDir(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_DIR_OUT);
     GpioSetDir(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_DIR_OUT);
     GpioSetOutputVal(FILL_PUMP_IA_GPIO, WIFI_IOT_GPIO_VALUE0);
     GpioSetOutputVal(FILL_PUMP_IB_GPIO, WIFI_IOT_GPIO_VALUE0);
+    
+    printf("[Pump] GPIO05/GPIO06 pull disabled, configured as output for fill pump\n");
 
     g_drain_pump_status = PUMP_OFF;
     g_fill_pump_status = PUMP_OFF;
