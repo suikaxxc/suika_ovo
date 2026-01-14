@@ -5,15 +5,16 @@
  * 
  * YW01 Sensor Specifications:
  * - Range: 0-90mm
+ * - Working voltage: 5.0V
  * - Output: 0-1.0V analog (NON-LINEAR relationship with water level)
  * - Hi3861 ADC: 12-bit (0-4095), 1.8V reference
  * 
- * Calibration Data (from user testing):
- * - Actual 45mm (50%) -> Sensor reads ~12mm (raw linear calculation)
- * - Actual 90mm (100%) -> Sensor reads ~18mm (raw linear calculation)
+ * Calibration Data (from user testing - 2024-01-14):
+ * - Actual 0mm -> Sensor raw reads ~12mm (offset at zero water level)
+ * - Actual ~40mm -> Sensor raw reads ~24mm
  * 
- * This indicates the sensor output is non-linear. We use a power-law
- * correction: actual_mm = k * raw_mm^n where n ≈ 1.71, k ≈ 0.77
+ * Calibration formula: actual_mm = (raw_mm - ZERO_OFFSET) * SCALE_FACTOR
+ * Where: ZERO_OFFSET = 12, SCALE_FACTOR = 40 / (24 - 12) = 3.33
  * 
  * For embedded efficiency, we use a lookup table with linear interpolation.
  */
@@ -48,40 +49,52 @@ static unsigned short g_water_level_raw = 0;
 /**
  * @brief Non-linear correction lookup table
  * Maps raw linear mm readings to actual mm readings
- * Based on calibration: raw 12mm -> actual 45mm, raw 18mm -> actual 90mm
+ * 
+ * New calibration data (2024-01-14):
+ * - Actual 0mm -> raw reads 12mm (zero offset)
+ * - Actual 40mm -> raw reads 24mm
+ * 
+ * Linear relationship: actual = (raw - 12) * (40 / 12) = (raw - 12) * 3.33
  * 
  * Table format: {raw_mm, actual_mm} pairs
- * Uses power-law approximation: actual = 0.77 * raw^1.71
  */
 typedef struct {
-    int raw_mm;    // Linear calculation result
+    int raw_mm;    // Linear calculation result from ADC
     int actual_mm; // Corrected actual water level
 } CalibrationPoint;
 
-// Calibration lookup table based on power-law: actual = 0.77 * raw^1.71
-// Pre-calculated values for efficiency
+// Zero offset: sensor reads 12mm when actual water level is 0mm
+#define YW01_ZERO_OFFSET 12
+
+// Calibration lookup table based on new data
+// Formula: actual = (raw - 12) * 3.33, clamped to [0, 90]
 static const CalibrationPoint g_calibration_table[] = {
-    {0, 0},
-    {2, 3},      // 0.77 * 2^1.71 ≈ 2.5
-    {4, 9},      // 0.77 * 4^1.71 ≈ 8.2
-    {6, 16},     // 0.77 * 6^1.71 ≈ 15.7
-    {8, 26},     // 0.77 * 8^1.71 ≈ 24.7
-    {10, 36},    // 0.77 * 10^1.71 ≈ 35.1
-    {12, 45},    // Calibration point: actual 45mm at 50% level
-    {14, 58},    // 0.77 * 14^1.71 ≈ 58
-    {16, 72},    // 0.77 * 16^1.71 ≈ 72
-    {18, 90},    // Calibration point: actual 90mm at 100% level
-    {20, 90},    // Clamped to max
+    {0, 0},      // Below offset - treat as 0
+    {12, 0},     // Calibration point: actual 0mm (zero offset)
+    {15, 10},    // (15-12) * 3.33 ≈ 10
+    {18, 20},    // (18-12) * 3.33 ≈ 20
+    {21, 30},    // (21-12) * 3.33 ≈ 30
+    {24, 40},    // Calibration point: actual 40mm
+    {27, 50},    // (27-12) * 3.33 ≈ 50
+    {30, 60},    // (30-12) * 3.33 ≈ 60
+    {33, 70},    // (33-12) * 3.33 ≈ 70
+    {36, 80},    // (36-12) * 3.33 ≈ 80
+    {39, 90},    // (39-12) * 3.33 ≈ 90
+    {50, 90},    // Clamped to max
 };
 #define CALIBRATION_TABLE_SIZE (sizeof(g_calibration_table) / sizeof(g_calibration_table[0]))
 
 /**
  * @brief Apply non-linear correction using lookup table with interpolation
+ * Handles zero offset and linear scaling based on calibration data
  */
 static int ApplyNonLinearCorrection(int raw_mm)
 {
-    if (raw_mm <= 0) return 0;
-    if (raw_mm >= 18) return YW01_MAX_MM;  // Cap at 90mm
+    // Below zero offset - treat as 0mm
+    if (raw_mm <= YW01_ZERO_OFFSET) return 0;
+    
+    // Above max calibrated value - cap at 90mm
+    if (raw_mm >= 39) return YW01_MAX_MM;
     
     // Find the two calibration points for interpolation
     int i;
