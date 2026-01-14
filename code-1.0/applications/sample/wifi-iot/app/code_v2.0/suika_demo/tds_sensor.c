@@ -4,12 +4,15 @@
  * Uses ADC5 (GPIO11) for TDS measurement
  * 
  * Based on DFRobot Gravity TDS Sensor (SEN0244):
- * - Output voltage range: 0 ~ 2.3V
+ * - Designed for 5V systems (VREF=5.0V in reference code)
+ * - Output voltage range: 0 ~ 2.3V (at 5V VCC)
  * - Measurement range: 0 ~ 1000ppm
  * 
- * Hi3861 ADC: 12-bit (0-4095)
- * ADC reference voltage adjusted to 3.3V based on calibration testing
- * (User reported 24ppm when expected ~100ppm with 1.8V reference)
+ * Hi3861 ADC: 12-bit (0-4095), 1.8V internal reference
+ * 
+ * When TDS sensor is powered with 3.3V:
+ * - Sensor output is scaled by 3.3/5.0 = 0.66
+ * - We compensate for this in the calculation
  * 
  * Uses median filtering for stable readings (following GravityTDSExample.ino)
  */
@@ -31,10 +34,18 @@
 #define TDS_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_5  // GPIO11/ADC5
 
 // Hi3861 ADC parameters
-// Note: Hi3861 ADC has different modes. After testing, using 3.3V reference
-// provides more accurate readings for the TDS sensor
-#define ADC_VREF_MV 3300         // Adjusted to 3.3V based on calibration testing
+// Hi3861 internal ADC reference is 1.8V, but with VREF=3.3V mode it can measure 0-3.3V
+// The DFRobot TDS sensor is designed for 5V systems (VREF=5.0V in reference code)
+// When powered with 3.3V, the sensor output is proportionally lower
+// 
+// Calibration: If readings are still too low, the sensor may need 5V power
+// and a voltage divider to scale the output for 3.3V ADC input
+//
+// Using 1.8V reference since Hi3861 ADC operates at 1.8V internally
+// Sensor VCC should be 3.3V, which means output range is scaled: 0-2.3V * (3.3/5.0) = 0-1.52V
+#define ADC_VREF_MV 1800         // Hi3861 ADC internal reference is 1.8V
 #define ADC_MAX_VALUE 4095       // 12-bit ADC max value
+#define SENSOR_VCC_RATIO 0.66f   // 3.3V/5.0V ratio for sensor powered at 3.3V
 
 // Median filter parameters (similar to GravityTDSExample.ino)
 #define SAMPLE_COUNT 30
@@ -103,16 +114,24 @@ static unsigned short GetMedian(void)
 /**
  * @brief Calculate TDS value from ADC reading with temperature compensation
  *        Following the formula from GravityTDSExample.ino
+ *        
+ *        Note: The DFRobot TDS sensor is designed for 5V systems.
+ *        When powered with 3.3V, the output voltage is scaled by 3.3/5.0 = 0.66
+ *        We need to compensate for this by dividing by SENSOR_VCC_RATIO
  */
 static int CalculateTDS(unsigned short adcValue, float temperature)
 {
     // Convert ADC value to voltage (Hi3861: 1.8V reference, 12-bit)
     float voltage = (float)adcValue * ADC_VREF_MV / 1000.0f / ADC_MAX_VALUE;
+    
+    // Compensate for sensor powered at 3.3V instead of 5V
+    // The sensor output is proportionally lower, so we need to scale it up
+    float scaledVoltage = voltage / SENSOR_VCC_RATIO;
 
     // Temperature compensation coefficient (standard: 25°C)
     // Formula from GravityTDSExample.ino: 1.0 + 0.02 * (temperature - 25.0)
     float compensationCoeff = 1.0f + 0.02f * (temperature - 25.0f);
-    float compensatedVoltage = voltage / compensationCoeff;
+    float compensatedVoltage = scaledVoltage / compensationCoeff;
 
     // Convert voltage to TDS using the DFRobot formula
     // tdsValue = (133.42*V^3 - 255.86*V^2 + 857.39*V) * 0.5
