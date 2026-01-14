@@ -126,16 +126,24 @@ static void HandleControlCommand(const char *payload, int payloadLen)
     char *typeStart = strstr(cmdBuf, "\"type\":\"");
     char *valueStart = strstr(cmdBuf, "\"value\":");
 
-    if (typeStart && valueStart)
+    if (typeStart)
     {
+        // Make a copy of cmdBuf for settings parsing (before modifying it)
+        char settingsBuf[512];
+        memcpy(settingsBuf, cmdBuf, payloadLen);
+        settingsBuf[payloadLen] = '\0';
+        
         typeStart += 8;  // Skip "\"type\":\""
         char *typeEnd = strchr(typeStart, '"');
         if (!typeEnd) return;
         *typeEnd = '\0';
         const char *cmdType = typeStart;
 
-        valueStart += 8;  // Skip "\"value\":"
-        int value = atoi(valueStart);
+        int value = 0;
+        if (valueStart) {
+            valueStart += 8;  // Skip "\"value\":"
+            value = atoi(valueStart);
+        }
 
         printf("[MQTT] Command type: %s, value: %d\n", cmdType, value);
 
@@ -175,35 +183,35 @@ static void HandleControlCommand(const char *payload, int payloadLen)
         }
         else if (strcmp(cmdType, "settings") == 0)
         {
-            // Parse settings from full payload
+            // Parse settings from full payload (use settingsBuf - unmodified copy)
             // Expected: {"type":"settings","waterTempMin":20,"waterTempMax":28,...}
             TankParams params;
             const TankParams *current = TankControl_GetParams();
             memcpy(&params, current, sizeof(TankParams));
 
             char *ptr;
-            ptr = strstr(cmdBuf, "\"waterTempMin\":");
+            ptr = strstr(settingsBuf, "\"waterTempMin\":");
             if (ptr) params.waterTempMin = (float)atof(ptr + 15);
 
-            ptr = strstr(cmdBuf, "\"waterTempMax\":");
+            ptr = strstr(settingsBuf, "\"waterTempMax\":");
             if (ptr) params.waterTempMax = (float)atof(ptr + 15);
 
-            ptr = strstr(cmdBuf, "\"waterLevelMin\":");
+            ptr = strstr(settingsBuf, "\"waterLevelMin\":");
             if (ptr) params.waterLevelMin = atoi(ptr + 16);
 
-            ptr = strstr(cmdBuf, "\"waterLevelMax\":");
+            ptr = strstr(settingsBuf, "\"waterLevelMax\":");
             if (ptr) params.waterLevelMax = atoi(ptr + 16);
 
-            ptr = strstr(cmdBuf, "\"lightThreshold\":");
+            ptr = strstr(settingsBuf, "\"lightThreshold\":");
             if (ptr) params.lightThreshold = atoi(ptr + 17);
 
-            ptr = strstr(cmdBuf, "\"lightDuration\":");
+            ptr = strstr(settingsBuf, "\"lightDuration\":");
             if (ptr) params.lightDuration = atoi(ptr + 16);
 
-            ptr = strstr(cmdBuf, "\"tdsMin\":");
+            ptr = strstr(settingsBuf, "\"tdsMin\":");
             if (ptr) params.tdsMin = atoi(ptr + 9);
 
-            ptr = strstr(cmdBuf, "\"tdsMax\":");
+            ptr = strstr(settingsBuf, "\"tdsMax\":");
             if (ptr) params.tdsMax = atoi(ptr + 9);
 
             TankControl_SetParams(&params);
