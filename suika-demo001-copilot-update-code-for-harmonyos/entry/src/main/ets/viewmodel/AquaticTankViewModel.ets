@@ -6,14 +6,14 @@ export default class AquaticTankViewModel {
   // 控制模式：0-自动模式，1-手动模式
   controlMode: number = 0;
 
-  // 水位（百分比 0-100）
+  // 水位（mm，YW01传感器范围0-90mm）
   waterLevel: number = 0;
 
-  // 水位下限阈值
-  waterLevelMin: number = 30;
+  // 水位下限阈值（mm）
+  waterLevelMin: number = 27;
 
-  // 水位上限阈值
-  waterLevelMax: number = 80;
+  // 水位上限阈值（mm）
+  waterLevelMax: number = 72;
 
   // 水温（摄氏度）
   waterTemp: number = 0;

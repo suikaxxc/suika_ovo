@@ -2,6 +2,9 @@
  * @file oled_display.c
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
+ * 
+ * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
+ * OLED page flip is now controlled via MQTT command from HarmonyOS app
  */
 
 #include <stdio.h>
@@ -12,7 +15,6 @@
 #include "cmsis_os2.h"
 #include "wifiiot_gpio.h"
 #include "wifiiot_gpio_ex.h"
-#include "wifiiot_adc.h"
 #include "wifiiot_errno.h"
 
 #include "oled_display.h"
@@ -38,22 +40,29 @@
 #define PAGE_STATUS 2
 #define PAGE_COUNT 3
 
-// Button ADC channel (GPIO05/ADC2 - same as display board)
-#define BTN_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_2
+// Display refresh interval
+#define REFRESH_INTERVAL_MS 200
+
+// I2C initialization delay (wait for I2C_CommonInit to complete)
+#define I2C_INIT_DELAY_SEC 2
 
 static int g_current_page = PAGE_SENSORS;
+static int g_page_changed = 0;  // Flag to indicate page change request
+static int g_oled_initialized = 0;  // Flag to track OLED init status
 
 static void RenderSensorPage(char *line, size_t lineSize)
 {
-    int waterLevel = Get_WaterLevelPercent();
+    int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
     int lightIntensity = Get_LightIntensity();
     const TankParams *params = TankControl_GetParams();
 
-    // Line 1: Water Level
-    snprintf(line, lineSize, "WL:%d%%(%d-%d)", waterLevel,
-             params->waterLevelMin, params->waterLevelMax);
+    // Line 1: Water Level in mm (YW01 sensor: 0-90mm)
+    // Convert params from percentage to mm for display (max 90mm)
+    int minMM = (params->waterLevelMin * 90) / 100;
+    int maxMM = (params->waterLevelMax * 90) / 100;
+    snprintf(line, lineSize, "WL:%dmm(%d-%d)", waterLevelMM, minMM, maxMM);
     OledShowString(0, 1, line, 1);
 
     // Line 2: Water Temperature
@@ -102,8 +111,8 @@ static void RenderActuatorPage(char *line, size_t lineSize)
              Heater_GetState() ? "ON " : "OFF");
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Fan
-    snprintf(line, lineSize, "Fan: %d%%", Fan_GetSpeed());
+    // Line 4: Fan (no percent symbol per user request)
+    snprintf(line, lineSize, "Fan: %d", Fan_GetSpeed());
     OledShowString(0, 4, line, 1);
 
     // Line 5: LED
@@ -153,83 +162,42 @@ static void OledDisplay_Task(void *arg)
 {
     (void)arg;
     static char line[32] = {0};
-    int lastBtnState = 0;
 
-    // Wait for I2C to be fully initialized
-    sleep(1);
+    // Wait for I2C to be fully initialized (I2C_CommonInit() in main.c)
+    sleep(I2C_INIT_DELAY_SEC);
 
-    // Initialize OLED
-    GpioInit();
-    OledInit();
+    // Initialize OLED (I2C0 already initialized in I2C_CommonInit)
+    uint32_t ret = OledInit();
+    if (ret != 0) {
+        printf("[OLED] OledInit failed with error: %u, OLED display disabled\n", ret);
+        g_oled_initialized = 0;
+        // Continue running but skip OLED operations
+        while (1) {
+            sleep(1);
+        }
+    }
+    
+    g_oled_initialized = 1;
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
-    printf("[OLED] Display initialized\n");
+    printf("[OLED] Display initialized (manual page flip via MQTT)\n");
     sleep(1);
 
-    // Initialize button - use ADC mode for reading
-    // Button S1/S2 are connected to GPIO05/ADC2
-    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
-    GpioSetDir(WIFI_IOT_GPIO_IDX_5, WIFI_IOT_GPIO_DIR_IN);
-    IoSetPull(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_PULL_UP);
+    // Note: Auto page switching removed
+    // Page flip is now controlled via MQTT command from HarmonyOS app
 
     while (1)
     {
-        unsigned short adc_val = 0;
-        int currentBtnState = 0;
-
-        // Read button ADC value
-        if (AdcRead(BTN_ADC_CHANNEL, &adc_val,
-                    WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS)
+        // Check if page change was requested via OledDisplay_NextPage()
+        if (g_page_changed)
         {
-            // Button detection thresholds based on voltage divider
-            // S1: pressed = low voltage (< 100)
-            // S2: pressed = medium voltage (400-1200)
-            // None: high voltage (> 3000)
-            if (adc_val < 100)
-            {
-                currentBtnState = 1;  // S1 pressed
-            }
-            else if (adc_val > 400 && adc_val < 1500)
-            {
-                currentBtnState = 2;  // S2 pressed
-            }
-            else
-            {
-                currentBtnState = 0;  // None
-            }
-        }
+            g_page_changed = 0;
+            OledFillScreen(0x00);
 
-        // Handle button press (on press down, not release)
-        if (lastBtnState == 0 && currentBtnState != 0)
-        {
-            printf("[OLED] Button pressed: S%d (ADC=%d)\n", currentBtnState, adc_val);
-            
-            if (currentBtnState == 1)
-            {
-                // S1: Switch page
-                g_current_page = (g_current_page + 1) % PAGE_COUNT;
-                OledFillScreen(0x00);
-
-                const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
-                OledShowString(0, 0, titles[g_current_page], 1);
-                printf("[OLED] Switched to page %d: %s\n", g_current_page, titles[g_current_page]);
-            }
-            else if (currentBtnState == 2)
-            {
-                // S2: Toggle mode
-                if (TankControl_GetMode() == CONTROL_MODE_AUTO)
-                {
-                    TankControl_SetMode(CONTROL_MODE_MANUAL);
-                    printf("[OLED] Mode: MANUAL\n");
-                }
-                else
-                {
-                    TankControl_SetMode(CONTROL_MODE_AUTO);
-                    printf("[OLED] Mode: AUTO\n");
-                }
-            }
+            const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
+            OledShowString(0, 0, titles[g_current_page], 1);
+            printf("[OLED] Page changed to: %s\n", titles[g_current_page]);
         }
-        lastBtnState = currentBtnState;
 
         // Render current page
         switch (g_current_page)
@@ -245,8 +213,35 @@ static void OledDisplay_Task(void *arg)
                 break;
         }
 
-        usleep(200000);  // 200ms refresh for better button response
+        usleep(REFRESH_INTERVAL_MS * 1000);  // Convert ms to us
     }
+}
+
+// Debounce for page flip - minimum time between page changes in OS ticks
+#define PAGE_CHANGE_DEBOUNCE_TICKS 5  // ~500ms at 100ms per tick
+
+void OledDisplay_NextPage(void)
+{
+    // Simple time-based debounce using OS tick count
+    static uint32_t last_change_tick = 0;
+    uint32_t current_tick = osKernelGetTickCount();
+    
+    // Debounce: ignore if less than debounce ticks since last change
+    if (last_change_tick != 0 && (current_tick - last_change_tick) < PAGE_CHANGE_DEBOUNCE_TICKS) {
+        printf("[OLED] NextPage ignored - debouncing (delta=%u ticks)\n", 
+               (unsigned int)(current_tick - last_change_tick));
+        return;
+    }
+    
+    last_change_tick = current_tick;
+    g_current_page = (g_current_page + 1) % PAGE_COUNT;
+    g_page_changed = 1;
+    printf("[OLED] NextPage requested, switching to page %d\n", g_current_page);
+}
+
+int OledDisplay_GetCurrentPage(void)
+{
+    return g_current_page;
 }
 
 void OledDisplay_MainLoop(void)

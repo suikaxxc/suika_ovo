@@ -37,12 +37,12 @@ export interface PlantParams {
   waterTempMax: number;
   lightThreshold: number;
   lightDuration: number;
-  waterLevelMin: number;
-  waterLevelMax: number;
+  waterLevelMin: number;  // 单位: mm (YW01传感器范围0-90mm)
+  waterLevelMax: number;  // 单位: mm (YW01传感器范围0-90mm)
   description: string;
 }
 
-// 各种植物的最优生长参数
+// 各种植物的最优生长参数 (水位单位: mm, YW01传感器范围0-90mm)
 export const PlantParamsConfig: PlantParams[] = [
   {
     name: "绿萝",
@@ -50,8 +50,8 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 28,
     lightThreshold: 300,
     lightDuration: 8,
-    waterLevelMin: 20,
-    waterLevelMax: 60,
+    waterLevelMin: 18,   // 20% -> 18mm
+    waterLevelMax: 54,   // 60% -> 54mm
     description: "绿萝喜温暖湿润，耐阴性强，适合水培养殖"
   },
   {
@@ -60,8 +60,8 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 30,
     lightThreshold: 800,
     lightDuration: 10,
-    waterLevelMin: 50,
-    waterLevelMax: 90,
+    waterLevelMin: 45,   // 50% -> 45mm
+    waterLevelMax: 81,   // 90% -> 81mm
     description: "睡莲需充足阳光，水位要求较高，开花美观"
   },
   {
@@ -70,8 +70,8 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 26,
     lightThreshold: 400,
     lightDuration: 6,
-    waterLevelMin: 30,
-    waterLevelMax: 70,
+    waterLevelMin: 27,   // 30% -> 27mm
+    waterLevelMax: 63,   // 70% -> 63mm
     description: "铜钱草生命力强，寓意招财进宝，易于养护"
   },
   {
@@ -80,8 +80,8 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 32,
     lightThreshold: 600,
     lightDuration: 8,
-    waterLevelMin: 40,
-    waterLevelMax: 80,
+    waterLevelMin: 36,   // 40% -> 36mm
+    waterLevelMax: 72,   // 80% -> 72mm
     description: "水葫芦繁殖快速，可净化水质，开紫色小花"
   },
   {
@@ -90,8 +90,8 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 25,
     lightThreshold: 200,
     lightDuration: 6,
-    waterLevelMin: 25,
-    waterLevelMax: 50,
+    waterLevelMin: 23,   // 25% -> ~23mm
+    waterLevelMax: 45,   // 50% -> 45mm
     description: "富贵竹寓意吉祥，耐阴耐寒，四季常青"
   },
   {
@@ -100,8 +100,8 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 28,
     lightThreshold: 700,
     lightDuration: 10,
-    waterLevelMin: 45,
-    waterLevelMax: 85,
+    waterLevelMin: 41,   // 45% -> ~41mm
+    waterLevelMax: 77,   // 85% -> ~77mm
     description: "碗莲小巧精致，开花清雅，适合室内观赏"
   },
   {
@@ -110,8 +110,8 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 18,
     lightThreshold: 500,
     lightDuration: 8,
-    waterLevelMin: 20,
-    waterLevelMax: 40,
+    waterLevelMin: 18,   // 20% -> 18mm
+    waterLevelMax: 36,   // 40% -> 36mm
     description: "水仙花香清雅，冬春开花，传统名花"
   },
   {
@@ -120,14 +120,14 @@ export const PlantParamsConfig: PlantParams[] = [
     waterTempMax: 20,
     lightThreshold: 400,
     lightDuration: 6,
-    waterLevelMin: 15,
-    waterLevelMax: 35,
+    waterLevelMin: 14,   // 15% -> ~14mm
+    waterLevelMax: 32,   // 35% -> ~32mm
     description: "风信子花色丰富，香气浓郁，水培易活"
   }
 ];
 
-// 服务器IP
-const HOST_IP = '10.0.2.2'
+// 服务器IP（必须与硬件端mqtt_client.c中的MQTT_HOST保持一致）
+const HOST_IP = '192.168.42.169'
 
 // MQTT服务端地址（需要tcp://协议前缀）
 export const MQTT_URL = `tcp://${HOST_IP}:1883`

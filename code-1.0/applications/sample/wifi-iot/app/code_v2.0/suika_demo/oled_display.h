@@ -15,6 +15,17 @@ extern "C" {
  */
 void OledDisplay_MainLoop(void);
 
+/**
+ * @brief Switch to next OLED display page (manual page flip)
+ */
+void OledDisplay_NextPage(void);
+
+/**
+ * @brief Get current OLED display page number
+ * @return Current page (0=Sensors, 1=Actuators, 2=System)
+ */
+int OledDisplay_GetCurrentPage(void);
+
 #ifdef __cplusplus
 }
 #endif

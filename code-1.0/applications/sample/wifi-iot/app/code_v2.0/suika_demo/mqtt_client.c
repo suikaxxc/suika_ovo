@@ -29,12 +29,13 @@
 #include "led_control.h"
 #include "alarm.h"
 #include "tank_control.h"
+#include "oled_display.h"
 
 #define MQTT_TASK_STACK_SIZE 4096
 
 // MQTT configuration - modify these for your setup
 // For production, these should be stored in configuration or set at build time
-#define MQTT_HOST "192.168.1.100"  // MQTT broker address
+#define MQTT_HOST "192.168.42.169"  // MQTT broker address
 #define MQTT_PORT 1883
 #define MQTT_CLIENT_ID "hi3861_aquatic_tank"
 #define MQTT_USERNAME "mqtt_user"
@@ -61,8 +62,8 @@ static void PublishSensorData(int socket)
     MQTTString topicString = MQTTString_initializer;
     topicString.cstring = MQTT_TOPIC_DATA;
 
-    // Get all sensor values
-    int waterLevel = Get_WaterLevelPercent();
+    // Get all sensor values - water level now in mm (0-90mm for YW01 sensor)
+    int waterLevel = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int lightIntensity = Get_LightIntensity();
     int tdsValue = Get_TDSValue();
@@ -75,8 +76,10 @@ static void PublishSensorData(int socket)
     int ledStatus = LED_GetState();
     AlarmLevel alarmLevel = Alarm_GetLevel();
     const char *alarmMsg = Alarm_GetMessage();
+    int controlMode = (TankControl_GetMode() == CONTROL_MODE_MANUAL) ? 1 : 0;
 
     // Build JSON payload matching HarmonyOS app MqttData interface
+    // Note: waterLevel is now in mm (0-90) instead of percentage
     snprintf(payload, sizeof(payload),
              "{"
              "\"waterLevel\":%d,"
@@ -89,11 +92,12 @@ static void PublishSensorData(int socket)
              "\"fanSpeed\":%d,"
              "\"ledStatus\":%d,"
              "\"alarmStatus\":%d,"
-             "\"alarmMessage\":\"%s\""
+             "\"alarmMessage\":\"%s\","
+             "\"controlMode\":%d"
              "}",
              waterLevel, waterTemp, lightIntensity, tdsValue,
              pumpStatus, waterPumpStatus, heaterStatus, fanSpeed, ledStatus,
-             (int)alarmLevel, alarmMsg);
+             (int)alarmLevel, alarmMsg, controlMode);
 
     int payloadlen = strlen(payload);
     int len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString,
@@ -122,16 +126,24 @@ static void HandleControlCommand(const char *payload, int payloadLen)
     char *typeStart = strstr(cmdBuf, "\"type\":\"");
     char *valueStart = strstr(cmdBuf, "\"value\":");
 
-    if (typeStart && valueStart)
+    if (typeStart)
     {
+        // Make a copy of cmdBuf for settings parsing (before modifying it)
+        char settingsBuf[512];
+        memcpy(settingsBuf, cmdBuf, payloadLen);
+        settingsBuf[payloadLen] = '\0';
+        
         typeStart += 8;  // Skip "\"type\":\""
         char *typeEnd = strchr(typeStart, '"');
         if (!typeEnd) return;
         *typeEnd = '\0';
         const char *cmdType = typeStart;
 
-        valueStart += 8;  // Skip "\"value\":"
-        int value = atoi(valueStart);
+        int value = 0;
+        if (valueStart) {
+            valueStart += 8;  // Skip "\"value\":"
+            value = atoi(valueStart);
+        }
 
         printf("[MQTT] Command type: %s, value: %d\n", cmdType, value);
 
@@ -160,38 +172,52 @@ static void HandleControlCommand(const char *payload, int payloadLen)
         {
             TankControl_SetMode(value == 0 ? CONTROL_MODE_AUTO : CONTROL_MODE_MANUAL);
         }
+        else if (strcmp(cmdType, "oledPage") == 0)
+        {
+            // OLED page flip command from app
+            OledDisplay_NextPage();
+        }
         else if (strcmp(cmdType, "plant") == 0)
         {
             TankControl_SetPlantType(value);
         }
         else if (strcmp(cmdType, "settings") == 0)
         {
-            // Parse settings from full payload
+            // Parse settings from full payload (use settingsBuf - unmodified copy)
             // Expected: {"type":"settings","waterTempMin":20,"waterTempMax":28,...}
             TankParams params;
             const TankParams *current = TankControl_GetParams();
             memcpy(&params, current, sizeof(TankParams));
 
             char *ptr;
-            ptr = strstr(cmdBuf, "\"waterTempMin\":");
+            ptr = strstr(settingsBuf, "\"waterTempMin\":");
             if (ptr) params.waterTempMin = (float)atof(ptr + 15);
 
-            ptr = strstr(cmdBuf, "\"waterTempMax\":");
+            ptr = strstr(settingsBuf, "\"waterTempMax\":");
             if (ptr) params.waterTempMax = (float)atof(ptr + 15);
 
-            ptr = strstr(cmdBuf, "\"waterLevelMin\":");
+            ptr = strstr(settingsBuf, "\"waterLevelMin\":");
             if (ptr) params.waterLevelMin = atoi(ptr + 16);
 
-            ptr = strstr(cmdBuf, "\"waterLevelMax\":");
+            ptr = strstr(settingsBuf, "\"waterLevelMax\":");
             if (ptr) params.waterLevelMax = atoi(ptr + 16);
 
-            ptr = strstr(cmdBuf, "\"lightThreshold\":");
+            ptr = strstr(settingsBuf, "\"lightThreshold\":");
             if (ptr) params.lightThreshold = atoi(ptr + 17);
 
-            ptr = strstr(cmdBuf, "\"lightDuration\":");
+            ptr = strstr(settingsBuf, "\"lightDuration\":");
             if (ptr) params.lightDuration = atoi(ptr + 16);
 
+            ptr = strstr(settingsBuf, "\"tdsMin\":");
+            if (ptr) params.tdsMin = atoi(ptr + 9);
+
+            ptr = strstr(settingsBuf, "\"tdsMax\":");
+            if (ptr) params.tdsMax = atoi(ptr + 9);
+
             TankControl_SetParams(&params);
+            printf("[MQTT] Settings updated: TempMin=%.1f, TempMax=%.1f, WaterMin=%d, WaterMax=%d\n",
+                   params.waterTempMin, params.waterTempMax, 
+                   params.waterLevelMin, params.waterLevelMax);
         }
     }
 }
@@ -201,6 +227,7 @@ static void MQTT_Task(void *arg)
     (void)arg;
     unsigned char buf[512];
     int buflen = sizeof(buf);
+    int pingCounter = 0;
 
     printf("[MQTT] Task started\n");
 
@@ -263,15 +290,18 @@ static void MQTT_Task(void *arg)
         transport_sendPacketBuffer(g_mqtt_socket, buf, len);
 
         MQTTPacket_read(buf, buflen, transport_getdata);  // Wait for SUBACK
+        printf("[MQTT] Subscribed to control topic\n");
 
-        // Main communication loop
+        // Reset counters for keep-alive and data publishing
+        pingCounter = 0;
+        int publishCounter = 0;
+
+        // Main communication loop - run at higher frequency for better responsiveness
         while (g_mqtt_connected)
         {
-            // Publish sensor data every 2 seconds
-            PublishSensorData(g_mqtt_socket);
-
-            // Check for incoming messages (non-blocking with timeout)
+            // Check for incoming messages (transport_getdata has 1 second timeout)
             int packetType = MQTTPacket_read(buf, buflen, transport_getdata);
+            
             if (packetType == PUBLISH)
             {
                 unsigned char dup, retained;
@@ -288,19 +318,49 @@ static void MQTT_Task(void *arg)
                     HandleControlCommand((const char *)payloadIn, payloadInLen);
                 }
             }
+            else if (packetType == PINGRESP)
+            {
+                // Received ping response, connection is alive
+                printf("[MQTT] PINGRESP received\n");
+            }
             else if (packetType == -1)
             {
-                // Connection lost
-                g_mqtt_connected = 0;
-                break;
+                // Timeout - this is normal, continue processing
             }
 
-            sleep(2);
+            // Increment counters on every loop iteration
+            pingCounter++;
+            publishCounter++;
+            
+            // Send PINGREQ every ~30 seconds (30 loop iterations with ~1s each)
+            if (pingCounter >= 30)
+            {
+                pingCounter = 0;
+                int pingLen = MQTTSerialize_pingreq(buf, buflen);
+                if (transport_sendPacketBuffer(g_mqtt_socket, buf, pingLen) <= 0)
+                {
+                    printf("[MQTT] Failed to send PINGREQ, connection lost\n");
+                    g_mqtt_connected = 0;
+                    break;
+                }
+            }
+
+            // Publish sensor data every ~2 seconds (2 loop iterations)
+            if (publishCounter >= 2)
+            {
+                publishCounter = 0;
+                PublishSensorData(g_mqtt_socket);
+            }
+
+            // Short delay to prevent CPU hogging, but keep responsive
+            usleep(100000);  // 100ms
         }
 
+        printf("[MQTT] Disconnected, reconnecting...\n");
         transport_close(g_mqtt_socket);
         g_mqtt_socket = -1;
-        sleep(5);
+        g_mqtt_connected = 0;
+        sleep(2);
     }
 }
 

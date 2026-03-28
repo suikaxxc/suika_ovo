@@ -19,6 +19,7 @@ interface MqttData {
   ledStatus?: number;
   alarmStatus?: number;
   alarmMessage?: string;
+  controlMode?: number;
 }
 
 interface ControlData {
@@ -44,6 +45,13 @@ struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
+  // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
+  private lastModeChangeTime: number = 0;
+  // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
+  private lastControlCommandTime: number = 0;
+  // 模式同步防抖时间（毫秒）- 在用户切换模式后的这段时间内，不从硬件同步模式
+  // 增加到30秒以确保手动模式不会被意外覆盖
+  private static readonly MODE_SYNC_DEBOUNCE_MS: number = 30000;
 
   aboutToAppear(): void {
     // 初始化默认植物参数（绿萝）
@@ -58,18 +66,35 @@ struct Index {
         if (!err && data?.payload) {
           try {
             const receivedData: MqttData = JSON.parse(String(data.payload));
-            // 更新传感器数据，保留用户设置
+            const now = Date.now();
+            // 计算用户最后一次操作的时间
+            const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
+            const isDebouncing = (now - lastUserAction) < Index.MODE_SYNC_DEBOUNCE_MS;
+
+            // 更新传感器数据（这些始终更新）
             this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
             this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
             this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
             this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
-            this.item.pumpStatus = receivedData.pumpStatus ?? this.item.pumpStatus;
-            this.item.waterPumpStatus = receivedData.waterPumpStatus ?? this.item.waterPumpStatus;
-            this.item.heaterStatus = receivedData.heaterStatus ?? this.item.heaterStatus;
-            this.item.fanSpeed = receivedData.fanSpeed ?? this.item.fanSpeed;
-            this.item.ledStatus = receivedData.ledStatus ?? this.item.ledStatus;
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
+
+            // 执行器状态：只在非防抖期间从硬件同步，防止用户手动控制被覆盖
+            if (!isDebouncing) {
+              this.item.pumpStatus = receivedData.pumpStatus ?? this.item.pumpStatus;
+              this.item.waterPumpStatus = receivedData.waterPumpStatus ?? this.item.waterPumpStatus;
+              this.item.heaterStatus = receivedData.heaterStatus ?? this.item.heaterStatus;
+              this.item.fanSpeed = receivedData.fanSpeed ?? this.item.fanSpeed;
+              this.item.ledStatus = receivedData.ledStatus ?? this.item.ledStatus;
+              // 控制模式也在非防抖期间同步
+              if (receivedData.controlMode !== undefined) {
+                this.item.controlMode = receivedData.controlMode;
+              }
+            } else {
+              // 防抖期间，记录日志但不同步执行器状态和控制模式
+              console.info('防抖中: 忽略硬件状态同步，剩余时间=' + 
+                (Index.MODE_SYNC_DEBOUNCE_MS - (now - lastUserAction)) + 'ms');
+            }
             this.item.wifiStatus = 1; // 收到数据说明已连接
             this.item.lastUpdateTime = new Date().toLocaleTimeString();
           } catch (e) {
@@ -93,8 +118,8 @@ struct Index {
   }
 
   initMockData(): void {
-    // 模拟传感器初始数据
-    this.item.waterLevel = 55;
+    // 模拟传感器初始数据 (水位单位: mm, YW01传感器范围0-90mm)
+    this.item.waterLevel = 50;  // 50mm
     this.item.waterTemp = 24;
     this.item.lightIntensity = 450;
     this.item.tdsValue = 280;
@@ -105,11 +130,20 @@ struct Index {
   }
 
   handleControlChange(controlType: string, value: number): void {
+    // 记录用户操作时间戳，用于防抖机制
+    const now = Date.now();
+    if (controlType === 'mode') {
+      // 模式切换记录专用时间戳
+      this.lastModeChangeTime = now;
+    } else if (controlType !== 'oledPage') {
+      // 非翻页的控制命令也记录时间戳，防止在手动操作期间被自动模式覆盖
+      this.lastControlCommandTime = now;
+    }
     // 发送控制指令到Hi3861设备
     const controlData: ControlData = {
       type: controlType,
       value: value,
-      timestamp: Date.now()
+      timestamp: now
     };
     console.info('发送控制指令:', JSON.stringify(controlData));
     // 通过MQTT发送控制指令到硬件端

@@ -13,6 +13,10 @@ export struct ControlComponent {
   // 回调函数不能使用@Prop装饰器，直接作为普通属性传递
   onControlChange: (controlType: string, value: number) => void = () => {};
 
+  // 用于防止Toggle onChange被MQTT同步触发时发送重复命令
+  // 记录上次已知的模式值（从item.controlMode或上次发送的值）
+  private lastKnownControlMode: number = -1;
+
   build() {
     Scroll() {
       Column() {
@@ -34,12 +38,28 @@ export struct ControlComponent {
               .switchPointColor(Color.White)
               .margin({ left: 8 })
               .onChange((isOn: boolean) => {
-                this.item.controlMode = isOn ? 1 : 0;
-                this.onControlChange('mode', this.item.controlMode);
-                promptAction.showToast({
-                  message: `已切换为${ControlModeArray[this.item.controlMode]}`,
-                  duration: 1500
-                });
+                const newMode = isOn ? 1 : 0;
+                const currentItemMode = this.item.controlMode;
+                
+                // 只有当用户真正切换了模式时才发送命令
+                // 检查：新模式与当前item.controlMode不同（说明是用户操作）
+                // 而不是MQTT同步后再次触发onChange（此时item.controlMode已经等于newMode）
+                if (newMode !== currentItemMode) {
+                  // 用户正在切换模式
+                  this.item.controlMode = newMode;
+                  this.lastKnownControlMode = newMode;
+                  this.onControlChange('mode', newMode);
+                  promptAction.showToast({
+                    message: `已切换为${ControlModeArray[newMode]}`,
+                    duration: 1500
+                  });
+                  console.info(`[ControlComponent] 模式切换命令已发送: ${newMode === 1 ? '手动' : '自动'}`);
+                } else {
+                  // onChange被MQTT同步触发，item.controlMode已经是newMode了
+                  // 只更新lastKnownControlMode，不发送命令
+                  this.lastKnownControlMode = newMode;
+                  console.info(`[ControlComponent] 忽略同步触发的onChange: mode=${newMode}`);
+                }
               })
           }
         }
@@ -281,6 +301,47 @@ export struct ControlComponent {
         .width('100%')
         .padding(12)
         .backgroundColor('#E0F7FA')
+        .borderRadius(10)
+
+        // OLED翻页按钮
+        Row() {
+          Row() {
+            Image($r('app.media.settings'))
+              .width(28)
+              .height(28)
+            Column() {
+              Text("OLED显示屏")
+                .fontSize(14)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#333333')
+              Text("点击切换显示页面")
+                .fontSize(12)
+                .fontColor('#999999')
+            }
+            .alignItems(HorizontalAlign.Start)
+            .margin({ left: 12 })
+          }
+
+          Blank()
+
+          Button("翻页")
+            .fontSize(14)
+            .fontColor(Color.White)
+            .backgroundColor('#607D8B')
+            .height(32)
+            .width(70)
+            .borderRadius(16)
+            .onClick(() => {
+              this.onControlChange('oledPage', 1);
+              promptAction.showToast({
+                message: '已发送OLED翻页指令',
+                duration: 1000
+              });
+            })
+        }
+        .width('100%')
+        .padding(12)
+        .backgroundColor('#ECEFF1')
         .borderRadius(10)
       }
 

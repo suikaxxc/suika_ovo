@@ -32,7 +32,7 @@ export struct StatusComponent {
       .width('100%')
       .margin({ bottom: 12 })
 
-      // 水位指示
+      // 水位指示 (单位: mm, YW01传感器范围0-90mm)
       Row() {
         Image($r('app.media.water_level'))
           .width(24)
@@ -43,19 +43,29 @@ export struct StatusComponent {
               .fontSize(14)
               .fontColor('#666666')
             Blank()
-            Text(`${this.item.waterLevel}%`)
+            Text(`${this.item.waterLevel} mm`)
               .fontSize(16)
               .fontWeight(FontWeight.Medium)
               .fontColor(this.getWaterLevelColor())
           }
           .width('100%')
 
-          Progress({ value: this.item.waterLevel, total: 100, type: ProgressType.Linear })
-            .width('100%')
-            .height(8)
-            .color(this.getWaterLevelColor())
-            .backgroundColor('#E0E0E0')
-            .margin({ top: 4 })
+          Row() {
+            Text(`${this.item.waterLevelMin} mm`)
+              .fontSize(10)
+              .fontColor('#999999')
+            Progress({ value: this.getWaterLevelProgress(), total: 100, type: ProgressType.Linear })
+              .layoutWeight(1)
+              .height(8)
+              .color(this.getWaterLevelColor())
+              .backgroundColor('#E0E0E0')
+              .margin({ left: 4, right: 4 })
+            Text(`${this.item.waterLevelMax} mm`)
+              .fontSize(10)
+              .fontColor('#999999')
+          }
+          .width('100%')
+          .margin({ top: 4 })
         }
         .layoutWeight(1)
         .margin({ left: 8 })
@@ -220,12 +230,24 @@ export struct StatusComponent {
   }
 
   getWaterLevelColor(): string {
+    // Water level is now in mm (0-90mm for YW01 sensor)
     if (this.item.waterLevel < this.item.waterLevelMin) {
       return '#FF5722';
     } else if (this.item.waterLevel > this.item.waterLevelMax) {
       return '#FF9800';
     }
     return '#4CAF50';
+  }
+
+  getWaterLevelProgress(): number {
+    // Calculate progress based on mm values (YW01 sensor: 0-90mm)
+    const range = this.item.waterLevelMax - this.item.waterLevelMin;
+    if (range <= 0) return 50;
+    // Use offset for better visual effect at boundaries
+    const offset = 5;
+    const totalRange = range + (offset * 2);
+    const progress = ((this.item.waterLevel - this.item.waterLevelMin + offset) / totalRange) * 100;
+    return Math.max(0, Math.min(100, progress));
   }
 
   getWaterTempColor(): string {

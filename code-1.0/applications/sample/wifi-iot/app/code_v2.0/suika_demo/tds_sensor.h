@@ -16,7 +16,14 @@ extern "C" {
 void TDS_MainLoop(void);
 
 /**
+ * @brief Collect ADC sample for median filtering
+ *        Call this frequently (e.g., every 40-100ms) for stable readings
+ */
+void TDS_CollectSample(void);
+
+/**
  * @brief Update TDS sensor reading (call periodically from control task)
+ *        This calculates TDS from collected samples using median filter
  */
 void TDS_Update(void);
 
@@ -27,7 +34,7 @@ void TDS_Update(void);
 int Get_TDSValue(void);
 
 /**
- * @brief Get raw TDS ADC value
+ * @brief Get raw TDS ADC value (median of samples)
  * @return Raw ADC value (0-4095)
  */
 unsigned short Get_TDSRaw(void);

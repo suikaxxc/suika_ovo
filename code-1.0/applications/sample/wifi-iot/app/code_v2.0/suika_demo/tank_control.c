@@ -82,6 +82,7 @@ void TankControl_Init(void)
 
 void TankControl_SetMode(ControlMode mode)
 {
+    printf("[TankControl] SetMode called: new_mode=%d (current=%d)\n", mode, g_control_mode);
     g_control_mode = mode;
 
     // Stop all actuators when switching to manual mode
@@ -90,6 +91,11 @@ void TankControl_SetMode(ControlMode mode)
         Pump_StopAll();
         Fan_Stop();
         Heater_Off();
+        printf("[TankControl] Switched to MANUAL mode - all actuators stopped\n");
+    }
+    else
+    {
+        printf("[TankControl] Switched to AUTO mode\n");
     }
 }
 
@@ -122,58 +128,95 @@ void TankControl_SetPlantType(int plantType)
 // Manual control functions
 void TankControl_ManualLED(int on)
 {
+    printf("[TankControl] ManualLED called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
         if (on) LED_On();
         else LED_Off();
+        printf("[TankControl] LED set to %s\n", on ? "ON" : "OFF");
+    }
+    else
+    {
+        printf("[TankControl] ManualLED ignored - not in manual mode\n");
     }
 }
 
 void TankControl_ManualFillPump(int on)
 {
+    printf("[TankControl] ManualFillPump called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
         Pump_SetState(PUMP_FILL, on ? PUMP_ON : PUMP_OFF);
+        printf("[TankControl] Fill pump set to %s\n", on ? "ON" : "OFF");
+    }
+    else
+    {
+        printf("[TankControl] ManualFillPump ignored - not in manual mode\n");
     }
 }
 
 void TankControl_ManualDrainPump(int on)
 {
+    printf("[TankControl] ManualDrainPump called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
         Pump_SetState(PUMP_DRAIN, on ? PUMP_ON : PUMP_OFF);
+        printf("[TankControl] Drain pump set to %s\n", on ? "ON" : "OFF");
+    }
+    else
+    {
+        printf("[TankControl] ManualDrainPump ignored - not in manual mode\n");
     }
 }
 
 void TankControl_ManualHeater(int on)
 {
+    printf("[TankControl] ManualHeater called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
         if (on) Heater_On();
         else Heater_Off();
+        printf("[TankControl] Heater set to %s\n", on ? "ON" : "OFF");
+    }
+    else
+    {
+        printf("[TankControl] ManualHeater ignored - not in manual mode\n");
     }
 }
 
 void TankControl_ManualFan(int speed)
 {
+    printf("[TankControl] ManualFan called: speed=%d, mode=%d\n", speed, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
         Fan_SetSpeed(speed);
+        printf("[TankControl] Fan speed set to %d%%\n", speed);
+    }
+    else
+    {
+        printf("[TankControl] ManualFan ignored - not in manual mode\n");
     }
 }
 
 // Check for safety conditions and trigger alarms
+// Note: In MANUAL mode, only triggers alarms but does NOT control actuators
+// This ensures manual mode has highest priority
 static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
 {
     char alarmMsg[64] = "";
+    int isManualMode = (g_control_mode == CONTROL_MODE_MANUAL);
 
     // Critical water level check
     if (waterLevel <= WATER_LEVEL_CRITICAL_LOW)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water level critical: %d%%", waterLevel);
         Alarm_Trigger(ALARM_DANGER, alarmMsg);
-        Pump_StopDrain();  // Prevent dry running
-        Heater_Off();      // Prevent dry burning
+        // Only control actuators in AUTO mode - manual mode has priority
+        if (!isManualMode)
+        {
+            Pump_StopDrain();  // Prevent dry running
+            Heater_Off();      // Prevent dry burning
+        }
         return;
     }
 
@@ -181,7 +224,11 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water level too high: %d%%", waterLevel);
         Alarm_Trigger(ALARM_WARNING, alarmMsg);
-        Pump_StopFill();
+        // Only control actuators in AUTO mode
+        if (!isManualMode)
+        {
+            Pump_StopFill();
+        }
         return;
     }
 
@@ -190,8 +237,12 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water temp critical: %.1fC", waterTemp);
         Alarm_Trigger(ALARM_DANGER, alarmMsg);
-        Heater_Off();
-        Fan_SetSpeed(100);  // Maximum cooling
+        // Only control actuators in AUTO mode - manual mode has priority
+        if (!isManualMode)
+        {
+            Heater_Off();
+            Fan_SetSpeed(100);  // Maximum cooling
+        }
         return;
     }
 
@@ -202,7 +253,7 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
         return;
     }
 
-    // TDS (water quality) check
+    // TDS (water quality) check - critical level
     if (tdsValue >= TDS_CRITICAL_HIGH)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water quality poor: %dppm", tdsValue);
