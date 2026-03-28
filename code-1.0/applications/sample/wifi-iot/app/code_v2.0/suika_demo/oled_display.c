@@ -3,7 +3,7 @@
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
  * 
- * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
+ * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump relay control
  * OLED page flip is now controlled via MQTT command from HarmonyOS app
  */
 

@@ -15,6 +15,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -68,6 +69,7 @@ static ControlMode g_control_mode = CONTROL_MODE_AUTO;
 #define WATER_TEMP_CRITICAL_LOW 5.0f
 #define WATER_TEMP_CRITICAL_HIGH 35.0f
 #define TDS_CRITICAL_HIGH 800
+#define TURBIDITY_CRITICAL_HIGH 700
 
 void TankControl_Init(void)
 {
@@ -201,7 +203,7 @@ void TankControl_ManualFan(int speed)
 // Check for safety conditions and trigger alarms
 // Note: In MANUAL mode, only triggers alarms but does NOT control actuators
 // This ensures manual mode has highest priority
-static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
+static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue, int turbidityValue)
 {
     char alarmMsg[64] = "";
     int isManualMode = (g_control_mode == CONTROL_MODE_MANUAL);
@@ -257,6 +259,14 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
     if (tdsValue >= TDS_CRITICAL_HIGH)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water quality poor: %dppm", tdsValue);
+        Alarm_Trigger(ALARM_WARNING, alarmMsg);
+        return;
+    }
+
+    // Turbidity check - remind user to change water
+    if (turbidityValue >= TURBIDITY_CRITICAL_HIGH)
+    {
+        snprintf(alarmMsg, sizeof(alarmMsg), "Turbidity high: %dNTU, change water", turbidityValue);
         Alarm_Trigger(ALARM_WARNING, alarmMsg);
         return;
     }
@@ -369,16 +379,18 @@ static void TankControl_Task(void *arg)
         WaterLevel_Update();
         LightSensor_Update();
         TDS_Update();
+        Turbidity_Update();
         DS18B20_Update();  // This takes ~750ms for conversion
         
         // Read all sensor values
         int waterLevel = Get_WaterLevelPercent();
         float waterTemp = Get_WaterTemperature();
         int tdsValue = Get_TDSValue();
+        int turbidityValue = Get_TurbidityValue();
         int lightIntensity = Get_LightIntensity();
 
         // Always check safety conditions regardless of mode
-        CheckSafetyConditions(waterLevel, waterTemp, tdsValue);
+        CheckSafetyConditions(waterLevel, waterTemp, tdsValue, turbidityValue);
 
         // Apply automatic control if in AUTO mode
         if (g_control_mode == CONTROL_MODE_AUTO)
