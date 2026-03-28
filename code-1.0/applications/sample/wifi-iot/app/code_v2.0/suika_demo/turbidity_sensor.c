@@ -60,7 +60,7 @@ static unsigned short GetMedian(void)
 
     BubbleSort(temp_buffer, count);
 
-    if ((count & 1) > 0)
+    if (count % 2 != 0)
     {
         return temp_buffer[(count - 1) / 2];
     }
@@ -94,10 +94,6 @@ void Turbidity_Update(void)
     g_turbidity_raw = GetMedian();
 
     int ntu = (g_turbidity_raw * TURBIDITY_MAX_NTU) / ADC_MAX_VALUE;
-    if (ntu < 0)
-    {
-        ntu = 0;
-    }
     if (ntu > TURBIDITY_MAX_NTU)
     {
         ntu = TURBIDITY_MAX_NTU;
