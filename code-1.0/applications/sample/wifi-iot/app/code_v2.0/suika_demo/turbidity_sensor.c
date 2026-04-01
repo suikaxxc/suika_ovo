@@ -14,6 +14,9 @@
 #define TURBIDITY_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_1
 #define ADC_MAX_VALUE 4095
 #define SAMPLE_COUNT 15
+#define ADC_VREF_MV 1800
+#define ADC_INPUT_SCALE 2.0f
+#define TURBIDITY_MIN_NTU 0
 #define TURBIDITY_MAX_NTU 1000
 
 static unsigned short g_sample_buffer[SAMPLE_COUNT];
@@ -93,12 +96,39 @@ void Turbidity_Update(void)
     Turbidity_CollectSample();
     g_turbidity_raw = GetMedian();
 
-    int ntu = (g_turbidity_raw * TURBIDITY_MAX_NTU) / ADC_MAX_VALUE;
+    // Convert ADC raw to sensor output voltage.
+    // Hi3861 ADC reference is 1.8V; board analog front-end scales ~0-3.6V to ADC range.
+    float voltage = ((float)g_turbidity_raw * (float)ADC_VREF_MV / (float)ADC_MAX_VALUE) * ADC_INPUT_SCALE / 1000.0f;
+    float ntu = 0.0f;
+
+    // Piecewise linear calibration from user-provided points:
+    // (2.5V, 1000), (3.0V, 600), (3.5V, 200), voltage higher => lower turbidity.
+    if (voltage <= 2.5f)
+    {
+        ntu = 1000.0f;
+    }
+    else if (voltage <= 3.0f)
+    {
+        ntu = 1000.0f - (voltage - 2.5f) * 800.0f;
+    }
+    else if (voltage <= 3.5f)
+    {
+        ntu = 600.0f - (voltage - 3.0f) * 800.0f;
+    }
+    else
+    {
+        ntu = 200.0f;
+    }
+
+    if (ntu < TURBIDITY_MIN_NTU)
+    {
+        ntu = TURBIDITY_MIN_NTU;
+    }
     if (ntu > TURBIDITY_MAX_NTU)
     {
         ntu = TURBIDITY_MAX_NTU;
     }
-    g_turbidity_ntu = ntu;
+    g_turbidity_ntu = (int)(ntu + 0.5f);
 }
 
 int Get_TurbidityValue(void)
