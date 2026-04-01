@@ -3,7 +3,7 @@
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
  * 
- * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
+ * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump relay control
  * OLED page flip is now controlled via MQTT command from HarmonyOS app
  */
 
@@ -23,6 +23,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -55,6 +56,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
+    int turbidityValue = Get_TurbidityValue();
     int lightIntensity = Get_LightIntensity();
     const TankParams *params = TankControl_GetParams();
 
@@ -78,20 +80,9 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "Light:%dlux", lightIntensity);
     OledShowString(0, 4, line, 1);
 
-    // Line 5: Alarm status
-    AlarmLevel alarm = Alarm_GetLevel();
-    if (alarm == ALARM_NONE)
-    {
-        OledShowString(0, 5, "Status: OK", 1);
-    }
-    else if (alarm == ALARM_WARNING)
-    {
-        OledShowString(0, 5, "Status: WARN", 1);
-    }
-    else
-    {
-        OledShowString(0, 5, "Status: DANGER", 1);
-    }
+    // Line 5: Turbidity (replace status to avoid long mixed line overflow)
+    snprintf(line, lineSize, "Turb:%dNTU", turbidityValue);
+    OledShowString(0, 5, line, 1);
 }
 
 static void RenderActuatorPage(char *line, size_t lineSize)

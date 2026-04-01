@@ -23,6 +23,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -67,6 +68,7 @@ static void PublishSensorData(int socket)
     float waterTemp = Get_WaterTemperature();
     int lightIntensity = Get_LightIntensity();
     int tdsValue = Get_TDSValue();
+    int turbidityValue = Get_TurbidityValue();
 
     // Get actuator states
     int pumpStatus = Pump_GetState(PUMP_FILL);
@@ -86,6 +88,7 @@ static void PublishSensorData(int socket)
              "\"waterTemp\":%.1f,"
              "\"lightIntensity\":%d,"
              "\"tdsValue\":%d,"
+             "\"turbidityValue\":%d,"
              "\"pumpStatus\":%d,"
              "\"waterPumpStatus\":%d,"
              "\"heaterStatus\":%d,"
@@ -95,7 +98,7 @@ static void PublishSensorData(int socket)
              "\"alarmMessage\":\"%s\","
              "\"controlMode\":%d"
              "}",
-             waterLevel, waterTemp, lightIntensity, tdsValue,
+             waterLevel, waterTemp, lightIntensity, tdsValue, turbidityValue,
              pumpStatus, waterPumpStatus, heaterStatus, fanSpeed, ledStatus,
              (int)alarmLevel, alarmMsg, controlMode);
 
