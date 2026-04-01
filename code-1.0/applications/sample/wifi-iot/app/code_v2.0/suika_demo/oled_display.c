@@ -77,7 +77,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     OledShowString(0, 3, line, 1);
 
     // Line 4: Turbidity + light intensity (compact format for 128x64 OLED)
-    snprintf(line, lineSize, "TUR:%d L:%d", turbidityValue, lightIntensity);
+    snprintf(line, lineSize, "Turb:%d L:%d", turbidityValue, lightIntensity);
     OledShowString(0, 4, line, 1);
 
     // Line 5: Alarm status
