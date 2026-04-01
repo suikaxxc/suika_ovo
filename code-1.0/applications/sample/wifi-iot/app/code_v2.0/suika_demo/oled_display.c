@@ -23,6 +23,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -55,6 +56,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
+    int turbidityValue = Get_TurbidityValue();
     int lightIntensity = Get_LightIntensity();
     const TankParams *params = TankControl_GetParams();
 
@@ -74,8 +76,8 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "TDS:%dppm", tdsValue);
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Light intensity in lux
-    snprintf(line, lineSize, "Light:%dlux", lightIntensity);
+    // Line 4: Turbidity + light intensity (compact format for 128x64 OLED)
+    snprintf(line, lineSize, "TUR:%d L:%d", turbidityValue, lightIntensity);
     OledShowString(0, 4, line, 1);
 
     // Line 5: Alarm status
