@@ -52,7 +52,7 @@
 | YW001水位传感器 | GPIO07/ADC3 | 水位检测 |
 | DS18B20温度传感器 | GPIO08 | 水温检测(1-Wire)，注意：不能使用GPIO02，会与UART0冲突 |
 | TDS水质传感器 | GPIO11/ADC5 | 水质TDS检测 |
-| 浊度传感器 | GPIO01/ADC1 | 水体浊度检测(NTU) |
+| 浊度传感器 | GPIO01(DO数字输出) | 水体浊度阈值检测(LOW触发) |
 | 光敏电阻(LDR) | GPIO12/ADC0 | 环境光检测(返回lux单位) |
 
 ### 继电器与水泵/Hi3861详细接线（NO/COM/NC/VCC/GND/IN）
@@ -121,7 +121,7 @@
 | GPIO | 功能 | 备注 |
 |------|------|------|
 | GPIO00 | 抽水泵继电器 | 低电平触发 |
-| GPIO01 | 浊度传感器 | ADC1输入 |
+| GPIO01 | 浊度传感器 | GPIO数字输入（DO，LOW触发） |
 | GPIO02 | UART0_TX | 系统调试串口，不可使用 |
 | GPIO03 | LED补光灯 | 数字输出控制 |
 | GPIO04 | PWM风扇 | PWM1调速输出(0-100%) |
@@ -243,7 +243,7 @@ suika_demo/
 2. 继电器模块建议使用独立电源，并与Hi3861共地
 3. 蜂鸣器使用PWM驱动，共振频率约2700Hz
 4. OLED与温湿度传感器共用I2C0，使用互斥锁保护
-5. 浊度传感器当前接 `GPIO01/ADC1`（见 `turbidity_sensor.c`：`WIFI_IOT_ADC_CHANNEL_1`）
+5. 浊度传感器当前接 `GPIO01` 的DO数字输出（见 `turbidity_sensor.c`：`GpioGetInputVal`）；低电平表示达到浊度阈值
 
 ## 版本信息
 
