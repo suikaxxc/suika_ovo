@@ -3,10 +3,10 @@
  * @brief Water pump control implementation for aquatic plant tank
  * 
  * Drain Pump Relay:
- *   - GPIO00 - HIGH level turns relay ON
+ *   - GPIO00 - LOW level turns relay ON (active-low relay)
  * 
  * Fill Pump Relay:
- *   - GPIO05 - HIGH level turns relay ON
+ *   - GPIO05 - LOW level turns relay ON (active-low relay)
  */
 
 #include <stdio.h>
@@ -20,11 +20,11 @@
 
 #include "pump_control.h"
 
-// Drain pump relay pin (high-level trigger)
+// Drain pump relay pin (active-low trigger)
 #define DRAIN_PUMP_RELAY_GPIO WIFI_IOT_GPIO_IDX_0
 #define DRAIN_PUMP_RELAY_IO   WIFI_IOT_IO_NAME_GPIO_0
 
-// Fill pump relay pin (high-level trigger)
+// Fill pump relay pin (active-low trigger)
 #define FILL_PUMP_RELAY_GPIO WIFI_IOT_GPIO_IDX_5
 #define FILL_PUMP_RELAY_IO   WIFI_IOT_IO_NAME_GPIO_5
 
@@ -36,7 +36,8 @@ void Pump_Init(void)
     // Initialize drain pump relay pin
     IoSetFunc(DRAIN_PUMP_RELAY_IO, WIFI_IOT_IO_FUNC_GPIO_0_GPIO);
     GpioSetDir(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_DIR_OUT);
-    GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
+    // Keep relay OFF on startup for active-low modules
+    GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
 
     // Initialize fill pump relay pin (GPIO05)
     // Note: GPIO05 is connected to onboard button on some Hi3861 OLED boards
@@ -47,14 +48,15 @@ void Pump_Init(void)
     IoSetPull(FILL_PUMP_RELAY_IO, WIFI_IOT_IO_PULL_NONE);
     
     GpioSetDir(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_DIR_OUT);
-    GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
+    // Keep relay OFF on startup for active-low modules
+    GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
     
     printf("[Pump] GPIO05 pull disabled, configured as relay output for fill pump\n");
 
     g_drain_pump_status = PUMP_OFF;
     g_fill_pump_status = PUMP_OFF;
 
-    printf("[Pump] Initialized (high-level relay control for both pumps)\n");
+    printf("[Pump] Initialized (active-low relay control for both pumps)\n");
 }
 
 void Pump_SetState(PumpType pump, PumpStatus status)
@@ -63,14 +65,14 @@ void Pump_SetState(PumpType pump, PumpStatus status)
     {
         if (status == PUMP_ON)
         {
-            // Relay ON (high level)
-            GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
+            // Relay ON (active-low)
+            GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_drain_pump_status = PUMP_ON;
         }
         else
         {
-            // Relay OFF (low level)
-            GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
+            // Relay OFF (active-low)
+            GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
             g_drain_pump_status = PUMP_OFF;
         }
     }
@@ -78,14 +80,14 @@ void Pump_SetState(PumpType pump, PumpStatus status)
     {
         if (status == PUMP_ON)
         {
-            // Relay ON (high level)
-            GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
+            // Relay ON (active-low)
+            GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_fill_pump_status = PUMP_ON;
         }
         else
         {
-            // Relay OFF (low level)
-            GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
+            // Relay OFF (active-low)
+            GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
             g_fill_pump_status = PUMP_OFF;
         }
     }
