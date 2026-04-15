@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Collect turbidity sensor digital input state
+ * @brief Collect turbidity sensor ADC sample
  */
 void Turbidity_CollectSample(void);
 
@@ -27,8 +27,8 @@ void Turbidity_Update(void);
 int Get_TurbidityValue(void);
 
 /**
- * @brief Get mapped raw turbidity digital value
- * @return 0 when GPIO01 is LOW(triggered), 4095 when GPIO01 is HIGH(not triggered)
+ * @brief Get raw turbidity ADC value
+ * @return Raw ADC value (0-4095)
  */
 unsigned short Get_TurbidityRaw(void);
 
