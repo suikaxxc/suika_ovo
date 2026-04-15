@@ -189,46 +189,50 @@ struct Index {
       .justifyContent(FlexAlign.Start)
 
       // 内容区域
-      Column({ space: 12 }) {
-        // 状态显示组件
-        StatusComponent({ item: this.item })
+      Scroll() {
+        Column({ space: 12 }) {
+          // 状态显示组件
+          StatusComponent({ item: this.item })
 
-        // Tab切换区域
-        Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
-          TabContent() {
-            ControlComponent({
-              item: $item,
-              onControlChange: (type: string, value: number) => this.handleControlChange(type, value)
-            })
-          }
-          .tabBar(this.TabBuilder(0, "设备控制", $r('app.media.control')))
+          // Tab切换区域
+          Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
+            TabContent() {
+              ControlComponent({
+                item: $item,
+                onControlChange: (type: string, value: number) => this.handleControlChange(type, value)
+              })
+            }
+            .tabBar(this.TabBuilder(0, "设备控制", $r('app.media.control')))
 
-          TabContent() {
-            SettingsComponent({
-              item: $item,
-              onSettingsChange: (settings: object) => this.handleSettingsChange(settings)
-            })
-          }
-          .tabBar(this.TabBuilder(1, "养护设置", $r('app.media.settings')))
+            TabContent() {
+              SettingsComponent({
+                item: $item,
+                onSettingsChange: (settings: object) => this.handleSettingsChange(settings)
+              })
+            }
+            .tabBar(this.TabBuilder(1, "养护设置", $r('app.media.settings')))
 
-          TabContent() {
-            AIComponent({ item: this.item })
+            TabContent() {
+              AIComponent({ item: this.item })
+            }
+            .tabBar(this.TabBuilder(2, "AI建议", $r('app.media.ai')))
           }
-          .tabBar(this.TabBuilder(2, "AI建议", $r('app.media.ai')))
+          .width('100%')
+          .height(480)
+          .barMode(BarMode.Fixed)
+          .barWidth('100%')
+          .barHeight(50)
+          .backgroundColor('#F0F4F8')
+          .clip(true)
+          .onChange((index: number) => {
+            this.currentTab = index;
+          })
         }
-        .width('100%')
-        .layoutWeight(1)
-        .barMode(BarMode.Fixed)
-        .barWidth('100%')
-        .barHeight(50)
-        .backgroundColor('#F0F4F8')
-        .onChange((index: number) => {
-          this.currentTab = index;
-        })
+        .padding({ top: 12, bottom: 20 })
       }
       .layoutWeight(1)
       .backgroundColor('#EEEEEE')
-      .padding({ top: 12, bottom: 12 })
+      .scrollBar(BarState.Off)
     }
     .width('100%')
     .height('100%')
