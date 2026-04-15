@@ -13,7 +13,10 @@
 
 #define TURBIDITY_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_1
 #define ADC_MAX_VALUE 4095
-#define ADC_VREF_V 1.8f
+// Hi3861 ADC reference voltage in volts.
+#define ADC_VREF_VOLTS 1.8f
+// User-provided AZDM01-style linear formula constants:
+// NTU = 1000 * (1 - (Voltage - 0.5) / 4.0)
 #define TURBIDITY_FORMULA_VOLTAGE_OFFSET 0.5f
 #define TURBIDITY_FORMULA_VOLTAGE_RANGE 4.0f
 #define TURBIDITY_MIN_NTU 0
@@ -37,7 +40,7 @@ void Turbidity_Update(void)
     Turbidity_CollectSample();
 
     // Convert ADC raw to voltage.
-    float voltage = (float)g_turbidity_raw * ADC_VREF_V / (float)ADC_MAX_VALUE;
+    float voltage = (float)g_turbidity_raw * ADC_VREF_VOLTS / (float)ADC_MAX_VALUE;
 
     // User-provided linear conversion:
     // NTU = 1000 * (1 - (Voltage - 0.5) / 4.0)
