@@ -13,7 +13,9 @@
 
 #define TURBIDITY_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_1
 #define ADC_MAX_VALUE 4095
-#define ADC_VREF_MV 1800
+#define ADC_VREF_V 1.8f
+#define TURBIDITY_FORMULA_VOLTAGE_OFFSET 0.5f
+#define TURBIDITY_FORMULA_VOLTAGE_RANGE 4.0f
 #define TURBIDITY_MIN_NTU 0
 #define TURBIDITY_MAX_NTU 1000
 
@@ -35,11 +37,11 @@ void Turbidity_Update(void)
     Turbidity_CollectSample();
 
     // Convert ADC raw to voltage.
-    float voltage = (float)g_turbidity_raw * (float)ADC_VREF_MV / (float)ADC_MAX_VALUE / 1000.0f;
+    float voltage = (float)g_turbidity_raw * ADC_VREF_V / (float)ADC_MAX_VALUE;
 
     // User-provided linear conversion:
     // NTU = 1000 * (1 - (Voltage - 0.5) / 4.0)
-    float ntu = 1000.0f * (1.0f - (voltage - 0.5f) / 4.0f);
+    float ntu = 1000.0f * (1.0f - (voltage - TURBIDITY_FORMULA_VOLTAGE_OFFSET) / TURBIDITY_FORMULA_VOLTAGE_RANGE);
 
     if (ntu < TURBIDITY_MIN_NTU)
     {
