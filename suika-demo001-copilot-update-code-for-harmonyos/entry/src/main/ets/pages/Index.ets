@@ -45,11 +45,7 @@ interface SettingsData {
 struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = 0;
-  @State headerVisible: boolean = true;
-  @State scrollViewHeight: number = 0;
-  @State scrollContentHeight: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
-  private pageScroller: Scroller = new Scroller();
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -57,9 +53,6 @@ struct Index {
   // 模式同步防抖时间（毫秒）- 在用户切换模式后的这段时间内，不从硬件同步模式
   // 增加到30秒以确保手动模式不会被意外覆盖
   private static readonly MODE_SYNC_DEBOUNCE_MS: number = 30000;
-  // 滚动到底部附近后隐藏状态栏，离开底部后再显示（加入迟滞避免闪烁）
-  private static readonly HEADER_HIDE_THRESHOLD_PX: number = 12;
-  private static readonly HEADER_SHOW_THRESHOLD_PX: number = 64;
 
   aboutToAppear(): void {
     // 初始化默认植物参数（绿萝）
@@ -176,32 +169,6 @@ struct Index {
     this.mqttUtil.publish(JSON.stringify(settingsData));
   }
 
-  updateHeaderVisibility(yOffset: number): void {
-    if (this.scrollViewHeight <= 0 || this.scrollContentHeight <= 0) {
-      return;
-    }
-
-    const bottomOffset = yOffset + this.scrollViewHeight;
-    const hideLine = this.scrollContentHeight - Index.HEADER_HIDE_THRESHOLD_PX;
-    const showLine = this.scrollContentHeight - Index.HEADER_SHOW_THRESHOLD_PX;
-
-    if (this.headerVisible && bottomOffset >= hideLine) {
-      this.headerVisible = false;
-      return;
-    }
-    if (!this.headerVisible && bottomOffset < showLine) {
-      this.headerVisible = true;
-    }
-  }
-
-  parseAreaHeight(value: number | string): number {
-    if (typeof value === 'number') {
-      return value;
-    }
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
   build() {
     Column() {
       // 顶部标题栏
@@ -222,13 +189,10 @@ struct Index {
       .justifyContent(FlexAlign.Start)
 
       // 内容区域
-      Scroll(this.pageScroller) {
+      Scroll() {
         Column({ space: 12 }) {
           // 状态显示组件
-          if (this.headerVisible) {
-            StatusComponent({ item: this.item })
-              .transition(TransitionEffect.OPACITY)
-          }
+          StatusComponent({ item: this.item })
 
           // Tab切换区域
           Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
@@ -265,21 +229,10 @@ struct Index {
           })
         }
         .padding({ top: 12, bottom: 20 })
-        .onAreaChange((_, newValue) => {
-          this.scrollContentHeight = this.parseAreaHeight(newValue.height);
-          this.updateHeaderVisibility(this.pageScroller.currentOffset().yOffset);
-        })
       }
       .layoutWeight(1)
       .backgroundColor('#EEEEEE')
       .scrollBar(BarState.Off)
-      .onAreaChange((_, newValue) => {
-        this.scrollViewHeight = this.parseAreaHeight(newValue.height);
-        this.updateHeaderVisibility(this.pageScroller.currentOffset().yOffset);
-      })
-      .onScroll((xOffset: number, yOffset: number) => {
-        this.updateHeaderVisibility(yOffset);
-      })
     }
     .width('100%')
     .height('100%')
