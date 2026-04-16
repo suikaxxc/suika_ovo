@@ -202,7 +202,7 @@ struct Index {
                 onControlChange: (type: string, value: number) => this.handleControlChange(type, value)
               })
             }
-            .tabBar(this.TabBuilder(0, "设备控制", $r('app.media.control')))
+            .tabBar(this.TabBuilder(0, "设备管理", $r('app.media.control')))
 
             TabContent() {
               SettingsComponent({
@@ -223,7 +223,6 @@ struct Index {
           .barWidth('100%')
           .barHeight(50)
           .backgroundColor('#F0F4F8')
-          .clip(true)
           .onChange((index: number) => {
             this.currentTab = index;
           })
@@ -250,7 +249,6 @@ struct Index {
         .fontColor(this.currentTab === index ? '#42A5F5' : '#999999')
         .margin({ top: 4 })
     }
-    .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .backgroundColor(Color.White)
