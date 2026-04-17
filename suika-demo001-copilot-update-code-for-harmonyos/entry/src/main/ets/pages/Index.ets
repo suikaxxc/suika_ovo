@@ -183,8 +183,8 @@ struct Index {
   }
 
   private syncAlarmNotification(alarmStatus: number, alarmMessage: string): void {
+    const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE;
     if (alarmStatus > 0) {
-      const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE;
       if (this.lastNotifiedAlarmStatus === alarmStatus && this.lastNotifiedAlarmMessage === message) {
         return;
       }
@@ -214,7 +214,7 @@ struct Index {
       });
     }
     this.lastNotifiedAlarmStatus = alarmStatus;
-    this.lastNotifiedAlarmMessage = alarmStatus > 0 ? (alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE) : '';
+    this.lastNotifiedAlarmMessage = alarmStatus > 0 ? message : '';
   }
 
   private refreshNotificationPermission(): void {
