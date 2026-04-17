@@ -45,6 +45,7 @@ interface SettingsData {
 struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = 0;
+  @State showRealtimeStatus: boolean = false;
   private mqttUtil: MQTTUtil = new MQTTUtil();
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
@@ -188,16 +189,37 @@ struct Index {
       .backgroundColor('#42A5F5')
       .justifyContent(FlexAlign.Start)
 
-      // 内容区域（单页布局：顶部状态区 + 下方功能区）
+      // 内容区域（单页布局：状态区默认折叠 + 下方功能区）
       Column({ space: 12 }) {
-        // 状态显示区：限制高度，防止挤压下方功能区域
-        Scroll() {
-          StatusComponent({ item: this.item })
+        // 状态显示开关：默认折叠，避免占用主功能区
+        Row() {
+          Text('实时状态')
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#666666')
+          Blank()
+          Text(this.showRealtimeStatus ? '收起' : '展开')
+            .fontSize(13)
+            .fontColor('#42A5F5')
         }
-        .width('100%')
-        .height(220)
-        .scrollBar(BarState.Auto)
-        .backgroundColor('#EEEEEE')
+        .width('94%')
+        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+        .borderRadius(10)
+        .backgroundColor('#F5F7FA')
+        .margin({ left: '3%', right: '3%' })
+        .onClick(() => {
+          this.showRealtimeStatus = !this.showRealtimeStatus;
+        })
+
+        if (this.showRealtimeStatus) {
+          Scroll() {
+            StatusComponent({ item: this.item })
+          }
+          .width('100%')
+          .height(210)
+          .scrollBar(BarState.Auto)
+          .backgroundColor('#EEEEEE')
+        }
 
         // Tab功能区：占据剩余空间，确保三个页面内容都可完整访问
         Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
@@ -226,8 +248,9 @@ struct Index {
         .width('100%')
         .barMode(BarMode.Fixed)
         .barWidth('100%')
-        .barHeight(50)
+        .barHeight(62)
         .backgroundColor('#F0F4F8')
+        .clip(true)
         .onChange((index: number) => {
           this.currentTab = index;
         })
@@ -252,6 +275,7 @@ struct Index {
         .fontColor(this.currentTab === index ? '#42A5F5' : '#999999')
         .margin({ top: 4 })
     }
+    .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .backgroundColor(Color.White)
