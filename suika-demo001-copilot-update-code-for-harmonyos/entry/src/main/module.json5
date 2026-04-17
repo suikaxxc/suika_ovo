@@ -49,6 +49,9 @@
     "requestPermissions": [
       {
         "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name": "ohos.permission.POST_NOTIFICATIONS"
       }
     ]
   }

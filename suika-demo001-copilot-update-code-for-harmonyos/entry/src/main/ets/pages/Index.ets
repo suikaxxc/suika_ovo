@@ -6,6 +6,7 @@ import AquaticTankViewModel from '../viewmodel/AquaticTankViewModel';
 import { MqttMessage } from '@ohos/mqtt';
 import MQTTUtil from '../common/utils/MQTTUtil';
 import { PlantParamsConfig } from '../common/constants/Constant';
+import { notificationManager } from '@kit.NotificationKit';
 
 interface MqttData {
   waterLevel?: number;
@@ -45,8 +46,9 @@ interface SettingsData {
 struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = 0;
-  @State showRealtimeStatus: boolean = false;
   private mqttUtil: MQTTUtil = new MQTTUtil();
+  private readonly alarmNotificationId: number = 1001;
+  private lastNotifiedAlarmStatus: number = 0;
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -81,6 +83,7 @@ struct Index {
             this.item.turbidityValue = receivedData.turbidityValue ?? this.item.turbidityValue;
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
+            this.syncAlarmNotification(this.item.alarmStatus, this.item.alarmMessage);
 
             // 执行器状态：只在非防抖期间从硬件同步，防止用户手动控制被覆盖
             if (!isDebouncing) {
@@ -170,6 +173,34 @@ struct Index {
     this.mqttUtil.publish(JSON.stringify(settingsData));
   }
 
+  private syncAlarmNotification(alarmStatus: number, alarmMessage: string): void {
+    if (alarmStatus > 0) {
+      if (this.lastNotifiedAlarmStatus === alarmStatus) {
+        return;
+      }
+      const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : '水生植物养殖缸检测到异常，请及时处理';
+      const request: notificationManager.NotificationRequest = {
+        id: this.alarmNotificationId,
+        content: {
+          notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
+          normal: {
+            title: '智能养殖缸报警',
+            text: message,
+            additionalText: `报警等级：${alarmStatus}`
+          }
+        }
+      };
+      notificationManager.publish(request).catch((err: Error) => {
+        console.error('发布报警通知失败:', JSON.stringify(err));
+      });
+    } else if (this.lastNotifiedAlarmStatus > 0) {
+      notificationManager.cancel(this.alarmNotificationId).catch((err: Error) => {
+        console.error('清理报警通知失败:', JSON.stringify(err));
+      });
+    }
+    this.lastNotifiedAlarmStatus = alarmStatus;
+  }
+
   build() {
     Column() {
       // 顶部标题栏
@@ -178,48 +209,20 @@ struct Index {
           .width(32)
           .height(32)
         Text("智能水生植物养殖缸")
-          .fontSize(20)
+          .fontSize(22)
           .fontWeight(FontWeight.Bold)
           .fontColor(Color.White)
           .margin({ left: 10 })
       }
       .width('100%')
-      .height(56)
-      .padding({ left: 16, right: 16 })
+      .height(64)
+      .padding({ left: 16, right: 16, top: 4, bottom: 4 })
       .backgroundColor('#42A5F5')
       .justifyContent(FlexAlign.Start)
 
-      // 内容区域（单页布局：状态区默认折叠 + 下方功能区）
+      // 内容区域（状态区常显 + 下方功能区）
       Column({ space: 12 }) {
-        // 状态显示开关：默认折叠，避免占用主功能区
-        Row() {
-          Text('实时状态')
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#666666')
-          Blank()
-          Text(this.showRealtimeStatus ? '收起' : '展开')
-            .fontSize(13)
-            .fontColor('#42A5F5')
-        }
-        .width('94%')
-        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-        .borderRadius(10)
-        .backgroundColor('#F5F7FA')
-        .margin({ left: '3%', right: '3%' })
-        .onClick(() => {
-          this.showRealtimeStatus = !this.showRealtimeStatus;
-        })
-
-        if (this.showRealtimeStatus) {
-          Scroll() {
-            StatusComponent({ item: this.item })
-          }
-          .width('100%')
-          .height(210)
-          .scrollBar(BarState.Auto)
-          .backgroundColor('#EEEEEE')
-        }
+        StatusComponent({ item: this.item })
 
         // Tab功能区：占据剩余空间，确保三个页面内容都可完整访问
         Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
@@ -248,7 +251,7 @@ struct Index {
         .width('100%')
         .barMode(BarMode.Fixed)
         .barWidth('100%')
-        .barHeight(62)
+        .barHeight(58)
         .backgroundColor('#F0F4F8')
         .clip(true)
         .onChange((index: number) => {
@@ -256,8 +259,8 @@ struct Index {
         })
       }
       .layoutWeight(1)
-      .padding({ top: 12, bottom: 12 })
-      .backgroundColor('#EEEEEE')
+      .padding({ top: 10, bottom: 10 })
+      .backgroundColor('#F3F6FA')
     }
     .width('100%')
     .height('100%')
@@ -278,6 +281,6 @@ struct Index {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .backgroundColor(Color.White)
+    .backgroundColor('#FAFCFF')
   }
 }

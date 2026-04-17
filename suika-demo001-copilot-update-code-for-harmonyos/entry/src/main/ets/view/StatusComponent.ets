@@ -11,321 +11,144 @@ export struct StatusComponent {
 
   build() {
     Column() {
-      // 标题栏
       Row() {
         Text("实时状态")
-          .fontSize(18)
+          .fontSize(20)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#333333')
+          .fontColor('#243447')
         Blank()
         Row() {
           Circle()
             .width(8)
             .height(8)
-            .fill(this.item.wifiStatus === 1 ? '#4CAF50' : '#FF5722')
+            .fill(this.item.wifiStatus === 1 ? '#2ECC71' : '#FF6B35')
           Text(WifiStatusArray[this.item.wifiStatus])
             .fontSize(12)
-            .fontColor(this.item.wifiStatus === 1 ? '#4CAF50' : '#FF5722')
-            .margin({ left: 4 })
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.item.wifiStatus === 1 ? '#2ECC71' : '#FF6B35')
+            .margin({ left: 6 })
         }
+        .padding({ left: 8, right: 10, top: 4, bottom: 4 })
+        .borderRadius(16)
+        .backgroundColor('#F3F7FF')
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: 10 })
 
-      // 水位指示 (单位: mm, YW01传感器范围0-90mm)
-      Row() {
-        Image($r('app.media.water_level'))
-          .width(24)
-          .height(24)
-        Column() {
-          Row() {
-            Text("水位")
-              .fontSize(14)
-              .fontColor('#666666')
-            Blank()
-            Text(`${this.item.waterLevel} mm`)
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.getWaterLevelColor())
-          }
-          .width('100%')
-
-          Row() {
-            Text(`${this.item.waterLevelMin} mm`)
-              .fontSize(10)
-              .fontColor('#999999')
-            Progress({ value: this.getWaterLevelProgress(), total: 100, type: ProgressType.Linear })
-              .layoutWeight(1)
-              .height(8)
-              .color(this.getWaterLevelColor())
-              .backgroundColor('#E0E0E0')
-              .margin({ left: 4, right: 4 })
-            Text(`${this.item.waterLevelMax} mm`)
-              .fontSize(10)
-              .fontColor('#999999')
-          }
-          .width('100%')
-          .margin({ top: 4 })
-        }
-        .layoutWeight(1)
-        .margin({ left: 8 })
+      Row({ space: 8 }) {
+        this.MetricCard($r('app.media.water_level'), '水位', `${this.item.waterLevel} mm`,
+          `${this.item.waterLevelMin}-${this.item.waterLevelMax} mm`, this.getWaterLevelColor(), '#ECF8EE')
+        this.MetricCard($r('app.media.temperature'), '水温', `${this.item.waterTemp}°C`,
+          `${this.item.waterTempMin}-${this.item.waterTempMax}°C`, this.getWaterTempColor(), '#EEF5FF')
       }
       .width('100%')
-      .padding(8)
-      .backgroundColor('#F5F5F5')
-      .borderRadius(8)
       .margin({ bottom: 8 })
 
-      // 水温指示
-      Row() {
-        Image($r('app.media.temperature'))
-          .width(24)
-          .height(24)
-        Column() {
-          Row() {
-            Text("水温")
-              .fontSize(14)
-              .fontColor('#666666')
-            Blank()
-            Text(`${this.item.waterTemp}°C`)
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.getWaterTempColor())
-          }
-          .width('100%')
-
-          Row() {
-            Text(`${this.item.waterTempMin}°C`)
-              .fontSize(10)
-              .fontColor('#999999')
-            Progress({ value: this.getTempProgress(), total: 100, type: ProgressType.Linear })
-              .layoutWeight(1)
-              .height(8)
-              .color(this.getWaterTempColor())
-              .backgroundColor('#E0E0E0')
-              .margin({ left: 4, right: 4 })
-            Text(`${this.item.waterTempMax}°C`)
-              .fontSize(10)
-              .fontColor('#999999')
-          }
-          .width('100%')
-          .margin({ top: 4 })
-        }
-        .layoutWeight(1)
-        .margin({ left: 8 })
+      Row({ space: 8 }) {
+        this.MetricCard($r('app.media.light'), '光照', `${this.item.lightIntensity} lux`,
+          this.item.lightIntensity < this.item.lightThreshold ? '需补光' : '光照充足', this.getLightColor(), '#FFF9EA')
+        this.MetricCard($r('app.media.water_level'), '水质', `${this.item.tdsValue} ppm`,
+          `${this.item.tdsMin}-${this.item.tdsMax} ppm`, this.getTdsColor(), '#F1F7FF')
       }
       .width('100%')
-      .padding(8)
-      .backgroundColor('#F5F5F5')
-      .borderRadius(8)
       .margin({ bottom: 8 })
 
-      // 光照强度
-      Row() {
-        Image($r('app.media.light'))
-          .width(24)
-          .height(24)
-        Column() {
-          Row() {
-            Text("光照")
-              .fontSize(14)
-              .fontColor('#666666')
-            Blank()
-            Text(`${this.item.lightIntensity} lux`)
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.getLightColor())
-          }
-          .width('100%')
-
-          Row() {
-            Text(`阈值: ${this.item.lightThreshold} lux`)
-              .fontSize(10)
-              .fontColor('#999999')
-            Blank()
-            Text(this.item.lightIntensity < this.item.lightThreshold ? "需补光" : "充足")
-              .fontSize(10)
-              .fontColor(this.item.lightIntensity < this.item.lightThreshold ? '#FF9800' : '#4CAF50')
-          }
-          .width('100%')
-          .margin({ top: 4 })
-        }
-        .layoutWeight(1)
-        .margin({ left: 8 })
+      Row({ space: 8 }) {
+        this.MetricCard($r('app.media.turbidity'), '浊度', `${this.item.turbidityValue} NTU`,
+          this.item.turbidityValue >= 700 ? '建议换水' : '状态正常', this.getTurbidityColor(), '#F7F2FF')
+        this.MetricCard($r('app.media.plant'), '更新时间', this.item.lastUpdateTime || '--:--:--',
+          '实时同步', '#42A5F5', '#EEF7FF')
       }
       .width('100%')
-      .padding(8)
-      .backgroundColor('#F5F5F5')
-      .borderRadius(8)
-      .margin({ bottom: 8 })
 
-      // 水质TDS指示
-      Row() {
-        Image($r('app.media.water_level'))
-          .width(24)
-          .height(24)
-        Column() {
-          Row() {
-            Text("水质")
-              .fontSize(14)
-              .fontColor('#666666')
-            Blank()
-            Text(`${this.item.tdsValue} ppm`)
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.getTdsColor())
-          }
-          .width('100%')
-
-          Row() {
-            Text(`${this.item.tdsMin} ppm`)
-              .fontSize(10)
-              .fontColor('#999999')
-            Progress({ value: this.getTdsProgress(), total: 100, type: ProgressType.Linear })
-              .layoutWeight(1)
-              .height(8)
-              .color(this.getTdsColor())
-              .backgroundColor('#E0E0E0')
-              .margin({ left: 4, right: 4 })
-            Text(`${this.item.tdsMax} ppm`)
-              .fontSize(10)
-              .fontColor('#999999')
-          }
-          .width('100%')
-          .margin({ top: 4 })
-        }
-        .layoutWeight(1)
-        .margin({ left: 8 })
-      }
-      .width('100%')
-      .padding(8)
-      .backgroundColor('#F5F5F5')
-      .borderRadius(8)
-      .margin({ bottom: 8 })
-
-      // 浊度指示
-      Row() {
-        Image($r('app.media.water_level'))
-          .width(24)
-          .height(24)
-        Column() {
-          Row() {
-            Text("浊度")
-              .fontSize(14)
-              .fontColor('#666666')
-            Blank()
-            Text(`${this.item.turbidityValue} NTU`)
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.getTurbidityColor())
-          }
-          .width('100%')
-
-          Row() {
-            Text("阈值: 700 NTU")
-              .fontSize(10)
-              .fontColor('#999999')
-            Blank()
-            Text(this.item.turbidityValue >= 700 ? "建议换水" : "正常")
-              .fontSize(10)
-              .fontColor(this.item.turbidityValue >= 700 ? '#FF5722' : '#4CAF50')
-          }
-          .width('100%')
-          .margin({ top: 4 })
-        }
-        .layoutWeight(1)
-        .margin({ left: 8 })
-      }
-      .width('100%')
-      .padding(8)
-      .backgroundColor('#F5F5F5')
-      .borderRadius(8)
-      .margin({ bottom: 8 })
-
-      // 报警状态
       if (this.item.alarmStatus > 0) {
         Row() {
           Image($r('app.media.alarm'))
-            .width(20)
-            .height(20)
+            .width(18)
+            .height(18)
           Text(this.item.alarmMessage || AlarmStatusArray[this.item.alarmStatus])
-            .fontSize(14)
-            .fontColor('#FF5722')
+            .fontSize(13)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#D94A38')
             .margin({ left: 8 })
         }
         .width('100%')
-        .padding(8)
-        .backgroundColor('#FFEBEE')
-        .borderRadius(8)
-        .margin({ top: 8 })
+        .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+        .borderRadius(10)
+        .backgroundColor('#FFF0EE')
+        .margin({ top: 10 })
       }
     }
-    .padding(14)
+    .padding(12)
     .width('94%')
-    .borderRadius(14)
-    .backgroundColor(Color.White)
+    .borderRadius(16)
+    .backgroundColor('#FFFFFF')
     .margin({ left: '3%', right: '3%' })
-    .shadow({ radius: 8, color: '#1A000000', offsetX: 0, offsetY: 2 })
+    .shadow({ radius: 10, color: '#18000000', offsetX: 0, offsetY: 3 })
+  }
+
+  @Builder
+  MetricCard(icon: Resource, title: string, value: string, subText: string, valueColor: string, bgColor: string) {
+    Column() {
+      Row() {
+        Image(icon)
+          .width(18)
+          .height(18)
+        Text(title)
+          .fontSize(13)
+          .fontColor('#5F6B7A')
+          .margin({ left: 6 })
+      }
+      .width('100%')
+
+      Text(value)
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(valueColor)
+        .margin({ top: 6 })
+        .width('100%')
+
+      Text(subText)
+        .fontSize(11)
+        .fontColor('#8E99A7')
+        .margin({ top: 2 })
+        .width('100%')
+    }
+    .layoutWeight(1)
+    .padding({ left: 10, right: 10, top: 10, bottom: 10 })
+    .borderRadius(12)
+    .backgroundColor(bgColor)
   }
 
   getWaterLevelColor(): string {
-    // Water level is now in mm (0-90mm for YW01 sensor)
     if (this.item.waterLevel < this.item.waterLevelMin) {
-      return '#FF5722';
+      return '#FF6B35';
     } else if (this.item.waterLevel > this.item.waterLevelMax) {
       return '#FF9800';
     }
-    return '#4CAF50';
-  }
-
-  getWaterLevelProgress(): number {
-    // Calculate progress based on mm values (YW01 sensor: 0-90mm)
-    const range = this.item.waterLevelMax - this.item.waterLevelMin;
-    if (range <= 0) return 50;
-    // Use offset for better visual effect at boundaries
-    const offset = 5;
-    const totalRange = range + (offset * 2);
-    const progress = ((this.item.waterLevel - this.item.waterLevelMin + offset) / totalRange) * 100;
-    return Math.max(0, Math.min(100, progress));
+    return '#2EAF51';
   }
 
   getWaterTempColor(): string {
     if (this.item.waterTemp < this.item.waterTempMin) {
       return '#2196F3';
     } else if (this.item.waterTemp > this.item.waterTempMax) {
-      return '#FF5722';
+      return '#FF6B35';
     }
-    return '#4CAF50';
-  }
-
-  getTempProgress(): number {
-    const range = this.item.waterTempMax - this.item.waterTempMin;
-    if (range <= 0) return 50;
-    const progress = ((this.item.waterTemp - this.item.waterTempMin + 5) / (range + 10)) * 100;
-    return Math.max(0, Math.min(100, progress));
+    return '#2EAF51';
   }
 
   getLightColor(): string {
-    return this.item.lightIntensity < this.item.lightThreshold ? '#FF9800' : '#4CAF50';
+    return this.item.lightIntensity < this.item.lightThreshold ? '#F59A23' : '#2EAF51';
   }
 
   getTdsColor(): string {
     if (this.item.tdsValue < this.item.tdsMin) {
       return '#2196F3';
     } else if (this.item.tdsValue > this.item.tdsMax) {
-      return '#FF5722';
+      return '#FF6B35';
     }
-    return '#4CAF50';
-  }
-
-  getTdsProgress(): number {
-    const range = this.item.tdsMax - this.item.tdsMin;
-    if (range <= 0) return 50;
-    // 使用偏移量使进度条在边界值时不会完全为0或100，提供更好的视觉效果
-    const offset = 50; // 偏移量，避免进度条在最小值时完全为空
-    const totalRange = 100; // 总偏移范围，与offset配合使用
-    const progress = ((this.item.tdsValue - this.item.tdsMin + offset) / (range + totalRange)) * 100;
-    return Math.max(0, Math.min(100, progress));
+    return '#2EAF51';
   }
 
   getTurbidityColor(): string {
@@ -335,6 +158,6 @@ export struct StatusComponent {
     if (this.item.turbidityValue >= 500) {
       return '#FF9800';
     }
-    return '#4CAF50';
+    return '#2EAF51';
   }
 }
