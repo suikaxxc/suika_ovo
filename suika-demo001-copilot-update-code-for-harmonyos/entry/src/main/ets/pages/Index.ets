@@ -188,50 +188,53 @@ struct Index {
       .backgroundColor('#42A5F5')
       .justifyContent(FlexAlign.Start)
 
-      // 内容区域
-      Scroll() {
-        Column({ space: 12 }) {
-          // 状态显示组件
+      // 内容区域（单页布局：顶部状态区 + 下方功能区）
+      Column({ space: 12 }) {
+        // 状态显示区：限制高度，防止挤压下方功能区域
+        Scroll() {
           StatusComponent({ item: this.item })
-
-          // Tab切换区域
-          Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
-            TabContent() {
-              ControlComponent({
-                item: $item,
-                onControlChange: (type: string, value: number) => this.handleControlChange(type, value)
-              })
-            }
-            .tabBar(this.TabBuilder(0, "设备管理", $r('app.media.control')))
-
-            TabContent() {
-              SettingsComponent({
-                item: $item,
-                onSettingsChange: (settings: object) => this.handleSettingsChange(settings)
-              })
-            }
-            .tabBar(this.TabBuilder(1, "养护设置", $r('app.media.settings')))
-
-            TabContent() {
-              AIComponent({ item: this.item })
-            }
-            .tabBar(this.TabBuilder(2, "AI建议", $r('app.media.ai')))
-          }
-          .width('100%')
-          .height(480)
-          .barMode(BarMode.Fixed)
-          .barWidth('100%')
-          .barHeight(50)
-          .backgroundColor('#F0F4F8')
-          .onChange((index: number) => {
-            this.currentTab = index;
-          })
         }
-        .padding({ top: 12, bottom: 20 })
+        .width('100%')
+        .height(220)
+        .scrollBar(BarState.Auto)
+        .backgroundColor('#EEEEEE')
+
+        // Tab功能区：占据剩余空间，确保三个页面内容都可完整访问
+        Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
+          TabContent() {
+            ControlComponent({
+              item: $item,
+              onControlChange: (type: string, value: number) => this.handleControlChange(type, value)
+            })
+          }
+          .tabBar(this.TabBuilder(0, "设备管理", $r('app.media.control')))
+
+          TabContent() {
+            SettingsComponent({
+              item: $item,
+              onSettingsChange: (settings: object) => this.handleSettingsChange(settings)
+            })
+          }
+          .tabBar(this.TabBuilder(1, "养护设置", $r('app.media.settings')))
+
+          TabContent() {
+            AIComponent({ item: this.item })
+          }
+          .tabBar(this.TabBuilder(2, "AI建议", $r('app.media.ai')))
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .barMode(BarMode.Fixed)
+        .barWidth('100%')
+        .barHeight(50)
+        .backgroundColor('#F0F4F8')
+        .onChange((index: number) => {
+          this.currentTab = index;
+        })
       }
       .layoutWeight(1)
+      .padding({ top: 12, bottom: 12 })
       .backgroundColor('#EEEEEE')
-      .scrollBar(BarState.Off)
     }
     .width('100%')
     .height('100%')
