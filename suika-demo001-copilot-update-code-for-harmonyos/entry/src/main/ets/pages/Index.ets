@@ -50,7 +50,6 @@ struct Index {
   private readonly alarmNotificationId: number = 1001;
   private static readonly DEFAULT_ALARM_MESSAGE: string = '水生植物养殖缸检测到异常，请及时处理';
   private lastNotifiedAlarmStatus: number = 0;
-  private lastNotifiedAlarmMessage: string = '';
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -176,11 +175,11 @@ struct Index {
   }
 
   private syncAlarmNotification(alarmStatus: number, alarmMessage: string): void {
-    const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE;
     if (alarmStatus > 0) {
-      if (this.lastNotifiedAlarmStatus === alarmStatus && this.lastNotifiedAlarmMessage === message) {
+      if (this.lastNotifiedAlarmStatus === alarmStatus) {
         return;
       }
+      const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE;
       const request: notificationManager.NotificationRequest = {
         id: this.alarmNotificationId,
         content: {
@@ -201,7 +200,6 @@ struct Index {
       });
     }
     this.lastNotifiedAlarmStatus = alarmStatus;
-    this.lastNotifiedAlarmMessage = alarmStatus > 0 ? message : '';
   }
 
   build() {
