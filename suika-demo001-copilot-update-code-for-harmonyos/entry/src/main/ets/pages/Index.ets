@@ -7,6 +7,7 @@ import { MqttMessage } from '@ohos/mqtt';
 import MQTTUtil from '../common/utils/MQTTUtil';
 import { PlantParamsConfig } from '../common/constants/Constant';
 import { notificationManager } from '@kit.NotificationKit';
+import { promptAction } from '@kit.ArkUI';
 
 interface MqttData {
   waterLevel?: number;
@@ -46,10 +47,15 @@ interface SettingsData {
 struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = 0;
+  @State showHeader: boolean = true;
+  @State headerBlur: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
   private readonly alarmNotificationId: number = 1001;
   private static readonly DEFAULT_ALARM_MESSAGE: string = '水生植物养殖缸检测到异常，请及时处理';
   private lastNotifiedAlarmStatus: number = 0;
+  private lastNotifiedAlarmMessage: string = '';
+  private notificationEnabled: boolean = true;
+  private lastTabScrollOffsets: number[] = [0, 0, 0];
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -57,6 +63,7 @@ struct Index {
   // 模式同步防抖时间（毫秒）- 在用户切换模式后的这段时间内，不从硬件同步模式
   // 增加到30秒以确保手动模式不会被意外覆盖
   private static readonly MODE_SYNC_DEBOUNCE_MS: number = 30000;
+  private static readonly HEADER_TOGGLE_SCROLL_DELTA: number = 10;
 
   aboutToAppear(): void {
     // 初始化默认植物参数（绿萝）
@@ -66,6 +73,7 @@ struct Index {
     this.initMockData();
 
     // 连接MQTT接收实时数据
+    this.refreshNotificationPermission();
     this.mqttUtil.connect(
       (err: Error, data: MqttMessage) => {
         if (!err && data?.payload) {
@@ -176,10 +184,10 @@ struct Index {
 
   private syncAlarmNotification(alarmStatus: number, alarmMessage: string): void {
     if (alarmStatus > 0) {
-      if (this.lastNotifiedAlarmStatus === alarmStatus) {
+      const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE;
+      if (this.lastNotifiedAlarmStatus === alarmStatus && this.lastNotifiedAlarmMessage === message) {
         return;
       }
-      const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE;
       const request: notificationManager.NotificationRequest = {
         id: this.alarmNotificationId,
         content: {
@@ -191,6 +199,12 @@ struct Index {
           }
         }
       };
+      if (!this.notificationEnabled) {
+        promptAction.showToast({
+          message: '检测到报警，请在系统设置中开启通知以接收APP信息通报',
+          duration: 2200
+        });
+      }
       notificationManager.publish(request).catch((err: Error) => {
         console.error('发布报警通知失败:', JSON.stringify(err));
       });
@@ -200,29 +214,67 @@ struct Index {
       });
     }
     this.lastNotifiedAlarmStatus = alarmStatus;
+    this.lastNotifiedAlarmMessage = alarmStatus > 0 ? (alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE) : '';
+  }
+
+  private refreshNotificationPermission(): void {
+    notificationManager.isNotificationEnabled().then((enabled: boolean) => {
+      this.notificationEnabled = enabled;
+      console.info(`系统通知开关状态: ${enabled}`);
+    }).catch((err: Error) => {
+      this.notificationEnabled = true;
+      console.error('获取通知权限状态失败:', JSON.stringify(err));
+    });
+  }
+
+  private handleTabScroll(tabIndex: number, offsetY: number): void {
+    const safeOffset = Math.max(0, offsetY);
+    const lastOffset = this.lastTabScrollOffsets[tabIndex] ?? 0;
+    const delta = safeOffset - lastOffset;
+    this.lastTabScrollOffsets[tabIndex] = safeOffset;
+    if (safeOffset <= 2 && !this.showHeader) {
+      this.showHeader = true;
+      this.headerBlur = 0;
+      return;
+    }
+    if (delta > Index.HEADER_TOGGLE_SCROLL_DELTA && this.showHeader) {
+      this.showHeader = false;
+      this.headerBlur = 10;
+    } else if (delta < -Index.HEADER_TOGGLE_SCROLL_DELTA && !this.showHeader) {
+      this.showHeader = true;
+      this.headerBlur = 0;
+    }
   }
 
   build() {
     Column() {
       // 顶部标题栏
-      Row() {
-        Image($r('app.media.aquarium'))
-          .width(32)
-          .height(32)
-        Text("智能水生植物养殖缸")
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(Color.White)
-          .margin({ left: 10 })
+      Column() {
+        Row() {
+          Image($r('app.media.aquarium'))
+            .width(32)
+            .height(32)
+          Text("智能水生植物养殖缸")
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+            .margin({ left: 10 })
+        }
+        .width('100%')
+        .height(64)
+        .padding({ left: 16, right: 16, top: 4, bottom: 4 })
+        .backgroundColor('#42A5F5')
+        .justifyContent(FlexAlign.Start)
       }
       .width('100%')
-      .height(64)
-      .padding({ left: 16, right: 16, top: 4, bottom: 4 })
-      .backgroundColor('#42A5F5')
-      .justifyContent(FlexAlign.Start)
+      .height(this.showHeader ? 64 : 0)
+      .opacity(this.showHeader ? 1 : 0)
+      .blur(this.headerBlur)
+      .clip(true)
+      .animation({ duration: 260, curve: Curve.EaseInOut })
 
       // 内容区域（状态区常显 + 下方功能区）
-      Column({ space: 12 }) {
+      Column({ space: 8 }) {
         StatusComponent({ item: this.item })
 
         // Tab功能区：占据剩余空间，确保三个页面内容都可完整访问
@@ -230,7 +282,8 @@ struct Index {
           TabContent() {
             ControlComponent({
               item: $item,
-              onControlChange: (type: string, value: number) => this.handleControlChange(type, value)
+              onControlChange: (type: string, value: number) => this.handleControlChange(type, value),
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(0, offsetY)
             })
           }
           .tabBar(this.TabBuilder(0, "设备管理", $r('app.media.control')))
@@ -238,13 +291,17 @@ struct Index {
           TabContent() {
             SettingsComponent({
               item: $item,
-              onSettingsChange: (settings: object) => this.handleSettingsChange(settings)
+              onSettingsChange: (settings: object) => this.handleSettingsChange(settings),
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(1, offsetY)
             })
           }
           .tabBar(this.TabBuilder(1, "养护设置", $r('app.media.settings')))
 
           TabContent() {
-            AIComponent({ item: this.item })
+            AIComponent({
+              item: this.item,
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(2, offsetY)
+            })
           }
           .tabBar(this.TabBuilder(2, "AI建议", $r('app.media.ai')))
         }
@@ -259,10 +316,11 @@ struct Index {
           this.currentTab = index;
         })
       }
-      .layoutWeight(1)
-      .padding({ top: 10, bottom: 10 })
-      .backgroundColor('#F3F6FA')
-    }
+        .layoutWeight(1)
+        .padding({ top: 10, bottom: 10 })
+        .backgroundColor('#F3F6FA')
+        .clip(true)
+      }
     .width('100%')
     .height('100%')
   }
