@@ -15,10 +15,6 @@
     {
       "name": "app_name",
       "value": "智能水生植物养殖缸"
-    },
-    {
-      "name": "notification_permission_reason",
-      "value": "用于在设备异常时通过系统通知发送报警信息"
     }
   ]
 }

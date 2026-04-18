@@ -222,7 +222,7 @@ struct Index {
       this.notificationEnabled = enabled;
       console.info(`系统通知开关状态: ${enabled}`);
     }).catch((err: Error) => {
-      this.notificationEnabled = false;
+      this.notificationEnabled = true;
       console.error('获取通知权限状态失败:', JSON.stringify(err));
     });
   }
