@@ -13,32 +13,17 @@
 
 #define TURBIDITY_ADC_CHANNEL WIFI_IOT_ADC_CHANNEL_1
 #define ADC_MAX_VALUE 4095
-// Hi3861 ADC reference voltage (max measurable analog level)
-#define ADC_VREF_VOLTS 1.8f
-// Sensor module supply voltage (user wiring is 5V side)
-#define TURBIDITY_SENSOR_SUPPLY_VOLTS 5.0f
-// AO->ADC divider ratio:
-//   adc_voltage = sensor_ao_voltage / ratio
-// default 2.0 means e.g. 10k:10k divider from 0~5V to 0~2.5V
-// IMPORTANT: Hi3861 ADC max is 1.8V, so hardware should ensure adc_voltage <= 1.8V.
-#define TURBIDITY_VOLTAGE_DIVIDER_RATIO 2.0f
-
-// Piecewise calibration points (sensor AO voltage on 5V supply side)
-// Higher voltage => clearer water (lower NTU).
-#define TURBIDITY_VOLTAGE_CLEAR_HIGH 3.5f
-#define TURBIDITY_VOLTAGE_MID        3.0f
-#define TURBIDITY_VOLTAGE_TURBID     2.5f
-
-// Corresponding NTU anchors
-#define TURBIDITY_NTU_CLEAR_HIGH 200.0f
-#define TURBIDITY_NTU_MID        600.0f
-#define TURBIDITY_NTU_TURBID     1000.0f
-
 #define TURBIDITY_MIN_NTU 0
 #define TURBIDITY_MAX_NTU 1000
+#define TURBIDITY_MIN_CALIB_RANGE_RAW 180
+#define TURBIDITY_DEFAULT_CLEAR_RAW 3200
+#define TURBIDITY_DEFAULT_TURBID_RAW 1800
 
 static unsigned short g_turbidity_raw = 0;
 static int g_turbidity_ntu = 0;
+static unsigned short g_calib_clear_raw = TURBIDITY_DEFAULT_CLEAR_RAW;
+static unsigned short g_calib_turbid_raw = TURBIDITY_DEFAULT_TURBID_RAW;
+static int g_turbidity_initialized = 0;
 
 void Turbidity_CollectSample(void)
 {
@@ -61,56 +46,78 @@ void Turbidity_CollectSample(void)
     }
 }
 
-static float ClampFloat(float value, float min, float max)
+static int ClampInt(int value, int min, int max)
 {
     if (value < min) return min;
     if (value > max) return max;
     return value;
 }
 
-static float Lerp(float x, float x0, float y0, float x1, float y1)
+static void Turbidity_UpdateCalibration(unsigned short raw)
 {
-    if (x1 <= x0) return y0;
-    return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
+    if (!g_turbidity_initialized) {
+        int init_clear = (int)raw + TURBIDITY_MIN_CALIB_RANGE_RAW;
+        int init_turbid = (int)raw - TURBIDITY_MIN_CALIB_RANGE_RAW;
+        g_calib_clear_raw = (unsigned short)ClampInt(init_clear, 0, ADC_MAX_VALUE);
+        g_calib_turbid_raw = (unsigned short)ClampInt(init_turbid, 0, ADC_MAX_VALUE);
+        g_turbidity_initialized = 1;
+    }
+
+    // Fast track newly observed extrema.
+    if (raw > g_calib_clear_raw) {
+        g_calib_clear_raw = raw;
+    } else {
+        // Slow decay to follow long-term drift.
+        g_calib_clear_raw = (unsigned short)(g_calib_clear_raw - (g_calib_clear_raw - raw) / 64);
+    }
+
+    if (raw < g_calib_turbid_raw) {
+        g_calib_turbid_raw = raw;
+    } else {
+        // Slow rise to follow long-term drift.
+        g_calib_turbid_raw = (unsigned short)(g_calib_turbid_raw + (raw - g_calib_turbid_raw) / 64);
+    }
+
+    // Keep a minimum mapping span to avoid stuck values.
+    if ((int)g_calib_clear_raw - (int)g_calib_turbid_raw < TURBIDITY_MIN_CALIB_RANGE_RAW) {
+        int center = ((int)g_calib_clear_raw + (int)g_calib_turbid_raw) / 2;
+        int half = TURBIDITY_MIN_CALIB_RANGE_RAW / 2;
+        g_calib_clear_raw = (unsigned short)ClampInt(center + half, 0, ADC_MAX_VALUE);
+        g_calib_turbid_raw = (unsigned short)ClampInt(center - half, 0, ADC_MAX_VALUE);
+    }
 }
 
 void Turbidity_Update(void)
 {
+    int span;
+    int ntu;
+
     Turbidity_CollectSample();
+    Turbidity_UpdateCalibration(g_turbidity_raw);
 
-    // Convert ADC raw to ADC pin voltage (0~1.8V).
-    float adc_voltage = (float)g_turbidity_raw * ADC_VREF_VOLTS / (float)ADC_MAX_VALUE;
-
-    // Reconstruct sensor AO voltage (5V side) using divider ratio.
-    float sensor_voltage = adc_voltage * TURBIDITY_VOLTAGE_DIVIDER_RATIO;
-    sensor_voltage = ClampFloat(sensor_voltage, 0.0f, TURBIDITY_SENSOR_SUPPLY_VOLTS);
-
-    float ntu;
-    if (sensor_voltage >= TURBIDITY_VOLTAGE_CLEAR_HIGH) {
-        // Very clear region: continue linearly down toward 0 NTU at near-full voltage.
-        ntu = Lerp(sensor_voltage, TURBIDITY_VOLTAGE_CLEAR_HIGH, TURBIDITY_NTU_CLEAR_HIGH,
-                   TURBIDITY_SENSOR_SUPPLY_VOLTS, 0.0f);
-    } else if (sensor_voltage >= TURBIDITY_VOLTAGE_MID) {
-        ntu = Lerp(sensor_voltage, TURBIDITY_VOLTAGE_MID, TURBIDITY_NTU_MID,
-                   TURBIDITY_VOLTAGE_CLEAR_HIGH, TURBIDITY_NTU_CLEAR_HIGH);
-    } else if (sensor_voltage >= TURBIDITY_VOLTAGE_TURBID) {
-        ntu = Lerp(sensor_voltage, TURBIDITY_VOLTAGE_TURBID, TURBIDITY_NTU_TURBID,
-                   TURBIDITY_VOLTAGE_MID, TURBIDITY_NTU_MID);
-    } else {
-        // Very turbid region below 2.5V, clamp near top range.
-        ntu = TURBIDITY_MAX_NTU;
+    // Adaptive raw mapping:
+    // clear water  -> higher ADC raw -> lower NTU
+    // turbid water -> lower ADC raw  -> higher NTU
+    span = (int)g_calib_clear_raw - (int)g_calib_turbid_raw;
+    if (span < TURBIDITY_MIN_CALIB_RANGE_RAW) {
+        span = TURBIDITY_MIN_CALIB_RANGE_RAW;
     }
 
-    if (ntu < TURBIDITY_MIN_NTU)
-    {
+    if (g_turbidity_raw >= g_calib_clear_raw) {
         ntu = TURBIDITY_MIN_NTU;
-    }
-    if (ntu > TURBIDITY_MAX_NTU)
-    {
+    } else if (g_turbidity_raw <= g_calib_turbid_raw) {
         ntu = TURBIDITY_MAX_NTU;
+    } else {
+        ntu = ((int)g_calib_clear_raw - (int)g_turbidity_raw) * TURBIDITY_MAX_NTU / span;
     }
+    ntu = ClampInt(ntu, TURBIDITY_MIN_NTU, TURBIDITY_MAX_NTU);
 
-    g_turbidity_ntu = (int)(ntu + 0.5f);
+    // Exponential smoothing for stable display.
+    if (g_turbidity_ntu == 0) {
+        g_turbidity_ntu = ntu;
+    } else {
+        g_turbidity_ntu = (g_turbidity_ntu * 3 + ntu) / 4;
+    }
 }
 
 int Get_TurbidityValue(void)
