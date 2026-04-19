@@ -284,30 +284,6 @@ struct Index {
           TabContent() {
             Scroll() {
               Column() {
-                Row() {
-                  Image($r('app.media.turbidity'))
-                    .width(40)
-                    .height(40)
-                  Column() {
-                    Text('浊度传感器图片')
-                      .fontSize(14)
-                      .fontWeight(FontWeight.Medium)
-                      .fontColor('#243447')
-                    Text('用于快速定位UI图标资源')
-                      .fontSize(11)
-                      .fontColor('#6B7280')
-                      .margin({ top: 2 })
-                  }
-                  .alignItems(HorizontalAlign.Start)
-                  .margin({ left: 10 })
-                }
-                .width('94%')
-                .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-                .borderRadius(12)
-                .backgroundColor('#FFFFFF')
-                .margin({ left: '3%', right: '3%', bottom: 8 })
-                .shadow({ radius: 8, color: '#14000000', offsetX: 0, offsetY: 2 })
-
                 StatusComponent({ item: this.item })
               }
               .width('100%')
