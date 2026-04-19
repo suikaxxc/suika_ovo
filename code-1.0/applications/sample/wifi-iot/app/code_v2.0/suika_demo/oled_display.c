@@ -4,7 +4,7 @@
  * Shows sensor data and actuator status on OLED screen
  * 
  * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump relay control
- * OLED page flip is now controlled via MQTT command from HarmonyOS app
+ * OLED supports automatic page flip and MQTT manual page flip
  */
 
 #include <stdio.h>
@@ -42,6 +42,9 @@
 
 // Display refresh interval
 #define REFRESH_INTERVAL_MS 200
+
+// Auto page switch interval
+#define AUTO_PAGE_SWITCH_INTERVAL_MS 5000
 
 // I2C initialization delay (wait for I2C_CommonInit to complete)
 #define I2C_INIT_DELAY_SEC 2
@@ -150,6 +153,9 @@ static void OledDisplay_Task(void *arg)
 {
     (void)arg;
     static char line[32] = {0};
+    uint32_t tickFreq = 0;
+    uint32_t autoSwitchIntervalTicks = 0;
+    uint32_t lastAutoSwitchTick = 0;
 
     // Wait for I2C to be fully initialized (I2C_CommonInit() in main.c)
     sleep(I2C_INIT_DELAY_SEC);
@@ -168,14 +174,30 @@ static void OledDisplay_Task(void *arg)
     g_oled_initialized = 1;
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
-    printf("[OLED] Display initialized (manual page flip via MQTT)\n");
+    printf("[OLED] Display initialized (auto + manual page flip)\n");
     sleep(1);
 
-    // Note: Auto page switching removed
-    // Page flip is now controlled via MQTT command from HarmonyOS app
+    // Auto page switching initialization
+    tickFreq = osKernelGetTickFreq();
+    if (tickFreq == 0) {
+        tickFreq = 1000; // fallback
+    }
+    autoSwitchIntervalTicks = (AUTO_PAGE_SWITCH_INTERVAL_MS * tickFreq + 999) / 1000;
+    if (autoSwitchIntervalTicks == 0) {
+        autoSwitchIntervalTicks = 1;
+    }
+    lastAutoSwitchTick = osKernelGetTickCount();
 
     while (1)
     {
+        uint32_t currentTick = osKernelGetTickCount();
+        if ((currentTick - lastAutoSwitchTick) >= autoSwitchIntervalTicks)
+        {
+            lastAutoSwitchTick = currentTick;
+            g_current_page = (g_current_page + 1) % PAGE_COUNT;
+            g_page_changed = 1;
+        }
+
         // Check if page change was requested via OledDisplay_NextPage()
         if (g_page_changed)
         {
