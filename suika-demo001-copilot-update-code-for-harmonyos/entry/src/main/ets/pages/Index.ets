@@ -1,6 +1,7 @@
 import { AIComponent } from '../view/AIComponent';
 import { StatusComponent } from '../view/StatusComponent';
 import { ControlComponent } from '../view/ControlComponent';
+import { DataDebugComponent } from '../view/DataDebugComponent';
 import { SettingsComponent, SettingsChangeData } from '../view/SettingsComponent';
 import AquaticTankViewModel from '../viewmodel/AquaticTankViewModel';
 import { MqttMessage } from '@ohos/mqtt';
@@ -50,6 +51,7 @@ struct Index {
   private static readonly TAB_CONTROL: number = 1;
   private static readonly TAB_SETTINGS: number = 2;
   private static readonly TAB_AI: number = 3;
+  private static readonly TAB_DEBUG: number = 4;
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = Index.TAB_STATUS;
   @State showHeader: boolean = true;
@@ -60,7 +62,8 @@ struct Index {
   private lastNotifiedAlarmStatus: number = 0;
   private lastNotifiedAlarmMessage: string = '';
   private notificationEnabled: boolean = true;
-  private lastTabScrollOffsets: number[] = [0, 0, 0, 0];
+  private lastTabScrollOffsets: number[] = [0, 0, 0, 0, 0];
+  @State manualDataMode: boolean = false;
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -109,12 +112,14 @@ struct Index {
           const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
           const isDebouncing = (now - lastUserAction) < Index.MODE_SYNC_DEBOUNCE_MS;
 
-          // 更新传感器数据（这些始终更新）
-          this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
-          this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
-          this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
-          this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
-          this.item.turbidityValue = receivedData.turbidityValue ?? this.item.turbidityValue;
+          // 更新传感器数据（手动演示模式下不覆盖）
+          if (!this.manualDataMode) {
+            this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
+            this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
+            this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
+            this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
+            this.item.turbidityValue = receivedData.turbidityValue ?? this.item.turbidityValue;
+          }
           this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
           this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
           this.syncAlarmNotification(this.item.alarmStatus, this.item.alarmMessage);
@@ -365,6 +370,15 @@ struct Index {
             })
           }
           .tabBar(this.TabBuilder(Index.TAB_AI, "AI建议", $r('app.media.ai')))
+
+          TabContent() {
+            DataDebugComponent({
+              item: $item,
+              manualDataMode: $manualDataMode,
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(Index.TAB_DEBUG, offsetY)
+            })
+          }
+          .tabBar(this.TabBuilder(Index.TAB_DEBUG, "数据调试", $r('app.media.settings')))
         }
         .layoutWeight(1)
         .width('100%')
