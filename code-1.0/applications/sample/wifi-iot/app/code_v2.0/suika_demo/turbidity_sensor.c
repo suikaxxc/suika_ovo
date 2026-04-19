@@ -15,7 +15,10 @@
 #define ADC_MAX_VALUE 4095
 #define TURBIDITY_MIN_NTU 0
 #define TURBIDITY_MAX_NTU 1000
-#define TURBIDITY_MIN_CALIB_RANGE_RAW 180
+#define TURBIDITY_CLEAR_BASE_NTU 25
+#define TURBIDITY_TURBID_BASE_NTU 900
+#define TURBIDITY_MIN_CALIB_RANGE_RAW 120
+#define TURBIDITY_INIT_CALIB_RANGE_RAW 220
 #define TURBIDITY_DEFAULT_CLEAR_RAW 3200
 #define TURBIDITY_DEFAULT_TURBID_RAW 1800
 
@@ -56,8 +59,8 @@ static int ClampInt(int value, int min, int max)
 static void Turbidity_UpdateCalibration(unsigned short raw)
 {
     if (!g_turbidity_initialized) {
-        int init_clear = (int)raw + TURBIDITY_MIN_CALIB_RANGE_RAW;
-        int init_turbid = (int)raw - TURBIDITY_MIN_CALIB_RANGE_RAW;
+        int init_clear = (int)raw;
+        int init_turbid = (int)raw - TURBIDITY_INIT_CALIB_RANGE_RAW;
         g_calib_clear_raw = (unsigned short)ClampInt(init_clear, 0, ADC_MAX_VALUE);
         g_calib_turbid_raw = (unsigned short)ClampInt(init_turbid, 0, ADC_MAX_VALUE);
         g_turbidity_initialized = 1;
@@ -67,23 +70,21 @@ static void Turbidity_UpdateCalibration(unsigned short raw)
     if (raw > g_calib_clear_raw) {
         g_calib_clear_raw = raw;
     } else {
-        // Slow decay to follow long-term drift.
-        g_calib_clear_raw = (unsigned short)(g_calib_clear_raw - (g_calib_clear_raw - raw) / 64);
+        // Keep clear-water baseline stable.
+        g_calib_clear_raw = (unsigned short)(g_calib_clear_raw - (g_calib_clear_raw - raw) / 256);
     }
 
     if (raw < g_calib_turbid_raw) {
         g_calib_turbid_raw = raw;
     } else {
-        // Slow rise to follow long-term drift.
-        g_calib_turbid_raw = (unsigned short)(g_calib_turbid_raw + (raw - g_calib_turbid_raw) / 64);
+        // Keep observed turbid extrema stable.
+        g_calib_turbid_raw = (unsigned short)(g_calib_turbid_raw + (raw - g_calib_turbid_raw) / 256);
     }
 
     // Keep a minimum mapping span to avoid stuck values.
     if ((int)g_calib_clear_raw - (int)g_calib_turbid_raw < TURBIDITY_MIN_CALIB_RANGE_RAW) {
-        int center = ((int)g_calib_clear_raw + (int)g_calib_turbid_raw) / 2;
-        int half = TURBIDITY_MIN_CALIB_RANGE_RAW / 2;
-        g_calib_clear_raw = (unsigned short)ClampInt(center + half, 0, ADC_MAX_VALUE);
-        g_calib_turbid_raw = (unsigned short)ClampInt(center - half, 0, ADC_MAX_VALUE);
+        g_calib_turbid_raw = (unsigned short)ClampInt((int)g_calib_clear_raw - TURBIDITY_MIN_CALIB_RANGE_RAW,
+                                                      0, ADC_MAX_VALUE);
     }
 }
 
@@ -104,11 +105,15 @@ void Turbidity_Update(void)
     }
 
     if (g_turbidity_raw >= g_calib_clear_raw) {
-        ntu = TURBIDITY_MIN_NTU;
+        ntu = TURBIDITY_CLEAR_BASE_NTU;
     } else if (g_turbidity_raw <= g_calib_turbid_raw) {
-        ntu = TURBIDITY_MAX_NTU;
+        int over = (int)g_calib_turbid_raw - (int)g_turbidity_raw;
+        int extra = over * (TURBIDITY_MAX_NTU - TURBIDITY_TURBID_BASE_NTU) / span;
+        ntu = TURBIDITY_TURBID_BASE_NTU + extra;
     } else {
-        ntu = ((int)g_calib_clear_raw - (int)g_turbidity_raw) * TURBIDITY_MAX_NTU / span;
+        ntu = TURBIDITY_CLEAR_BASE_NTU +
+              ((int)g_calib_clear_raw - (int)g_turbidity_raw) *
+                  (TURBIDITY_TURBID_BASE_NTU - TURBIDITY_CLEAR_BASE_NTU) / span;
     }
     ntu = ClampInt(ntu, TURBIDITY_MIN_NTU, TURBIDITY_MAX_NTU);
 
@@ -116,7 +121,7 @@ void Turbidity_Update(void)
     if (g_turbidity_ntu == 0) {
         g_turbidity_ntu = ntu;
     } else {
-        g_turbidity_ntu = (g_turbidity_ntu * 3 + ntu) / 4;
+        g_turbidity_ntu = (g_turbidity_ntu + ntu) / 2;
     }
 }
 
