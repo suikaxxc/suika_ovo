@@ -45,8 +45,12 @@ interface SettingsData {
 @Entry
 @Component
 struct Index {
+  private static readonly TAB_STATUS: number = 0;
+  private static readonly TAB_CONTROL: number = 1;
+  private static readonly TAB_SETTINGS: number = 2;
+  private static readonly TAB_AI: number = 3;
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
-  @State currentTab: number = 1;
+  @State currentTab: number = Index.TAB_CONTROL;
   @State showHeader: boolean = true;
   @State headerBlur: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
@@ -313,36 +317,36 @@ struct Index {
             .scrollable(ScrollDirection.Vertical)
             .onDidScroll((xOffset: number, yOffset: number) => {
               void xOffset;
-              this.handleTabScroll(0, yOffset);
+              this.handleTabScroll(Index.TAB_STATUS, yOffset);
             })
           }
-          .tabBar(this.TabBuilder(0, "实时状态", $r('app.media.turbidity')))
+          .tabBar(this.TabBuilder(Index.TAB_STATUS, "实时状态", $r('app.media.turbidity')))
 
           TabContent() {
             ControlComponent({
               item: $item,
               onControlChange: (type: string, value: number) => this.handleControlChange(type, value),
-              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(1, offsetY)
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(Index.TAB_CONTROL, offsetY)
             })
           }
-          .tabBar(this.TabBuilder(1, "设备管理", $r('app.media.control')))
+          .tabBar(this.TabBuilder(Index.TAB_CONTROL, "设备管理", $r('app.media.control')))
 
           TabContent() {
             SettingsComponent({
               item: $item,
               onSettingsChange: (settings: object) => this.handleSettingsChange(settings),
-              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(2, offsetY)
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(Index.TAB_SETTINGS, offsetY)
             })
           }
-          .tabBar(this.TabBuilder(2, "养护设置", $r('app.media.settings')))
+          .tabBar(this.TabBuilder(Index.TAB_SETTINGS, "养护设置", $r('app.media.settings')))
 
           TabContent() {
             AIComponent({
               item: this.item,
-              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(3, offsetY)
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(Index.TAB_AI, offsetY)
             })
           }
-          .tabBar(this.TabBuilder(3, "AI建议", $r('app.media.ai')))
+          .tabBar(this.TabBuilder(Index.TAB_AI, "AI建议", $r('app.media.ai')))
         }
         .layoutWeight(1)
         .width('100%')
