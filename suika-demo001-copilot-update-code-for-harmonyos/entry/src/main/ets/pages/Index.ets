@@ -46,7 +46,7 @@ interface SettingsData {
 @Component
 struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
-  @State currentTab: number = 0;
+  @State currentTab: number = 1;
   @State showHeader: boolean = true;
   @State headerBlur: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
@@ -55,7 +55,7 @@ struct Index {
   private lastNotifiedAlarmStatus: number = 0;
   private lastNotifiedAlarmMessage: string = '';
   private notificationEnabled: boolean = true;
-  private lastTabScrollOffsets: number[] = [0, 0, 0];
+  private lastTabScrollOffsets: number[] = [0, 0, 0, 0];
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -273,37 +273,76 @@ struct Index {
       .clip(true)
       .animation({ duration: 260, curve: Curve.EaseInOut })
 
-      // 内容区域（状态区常显 + 下方功能区）
-      Column({ space: 8 }) {
-        StatusComponent({ item: this.item })
-
-        // Tab功能区：占据剩余空间，确保三个页面内容都可完整访问
+      // 内容区域（四入口功能区）
+      Column() {
+        // Tab功能区：占据剩余空间，确保四个入口（实时状态/设备管理/养护设置/AI建议）单屏可见
         Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
+          TabContent() {
+            Scroll() {
+              Column() {
+                Row() {
+                  Image($r('app.media.turbidity'))
+                    .width(40)
+                    .height(40)
+                  Column() {
+                    Text('浊度传感器图片')
+                      .fontSize(14)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor('#243447')
+                    Text('用于快速定位UI图标资源')
+                      .fontSize(11)
+                      .fontColor('#6B7280')
+                      .margin({ top: 2 })
+                  }
+                  .alignItems(HorizontalAlign.Start)
+                  .margin({ left: 10 })
+                }
+                .width('94%')
+                .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+                .borderRadius(12)
+                .backgroundColor('#FFFFFF')
+                .margin({ left: '3%', right: '3%', bottom: 8 })
+                .shadow({ radius: 8, color: '#14000000', offsetX: 0, offsetY: 2 })
+
+                StatusComponent({ item: this.item })
+              }
+              .width('100%')
+              .padding({ top: 10, bottom: 10 })
+            }
+            .scrollBar(BarState.Auto)
+            .scrollable(ScrollDirection.Vertical)
+            .onDidScroll((xOffset: number, yOffset: number) => {
+              void xOffset;
+              this.handleTabScroll(0, yOffset);
+            })
+          }
+          .tabBar(this.TabBuilder(0, "实时状态", $r('app.media.turbidity')))
+
           TabContent() {
             ControlComponent({
               item: $item,
               onControlChange: (type: string, value: number) => this.handleControlChange(type, value),
-              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(0, offsetY)
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(1, offsetY)
             })
           }
-          .tabBar(this.TabBuilder(0, "设备管理", $r('app.media.control')))
+          .tabBar(this.TabBuilder(1, "设备管理", $r('app.media.control')))
 
           TabContent() {
             SettingsComponent({
               item: $item,
               onSettingsChange: (settings: object) => this.handleSettingsChange(settings),
-              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(1, offsetY)
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(2, offsetY)
             })
           }
-          .tabBar(this.TabBuilder(1, "养护设置", $r('app.media.settings')))
+          .tabBar(this.TabBuilder(2, "养护设置", $r('app.media.settings')))
 
           TabContent() {
             AIComponent({
               item: this.item,
-              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(2, offsetY)
+              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(3, offsetY)
             })
           }
-          .tabBar(this.TabBuilder(2, "AI建议", $r('app.media.ai')))
+          .tabBar(this.TabBuilder(3, "AI建议", $r('app.media.ai')))
         }
         .layoutWeight(1)
         .width('100%')
@@ -317,7 +356,7 @@ struct Index {
         })
       }
         .layoutWeight(1)
-        .padding({ top: 10, bottom: 10 })
+        .padding({ top: 6, bottom: 10 })
         .backgroundColor('#F3F6FA')
         .clip(true)
       }
