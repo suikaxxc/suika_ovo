@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -62,6 +63,8 @@ static TankParams g_current_params = {
 };
 
 static ControlMode g_control_mode = CONTROL_MODE_AUTO;
+static osMutexId_t g_tank_control_mutex = NULL;
+static uint32_t g_mode_change_seq = 0;
 
 // Safety thresholds for alarms
 #define WATER_LEVEL_CRITICAL_LOW 10
@@ -73,6 +76,8 @@ static ControlMode g_control_mode = CONTROL_MODE_AUTO;
 
 void TankControl_Init(void)
 {
+    g_tank_control_mutex = osMutexNew(NULL);
+
     // Initialize all actuators (GPIO already initialized in I2C_CommonInit)
     Pump_Init();
     TempControl_Init();
@@ -84,8 +89,13 @@ void TankControl_Init(void)
 
 void TankControl_SetMode(ControlMode mode)
 {
+    if (g_tank_control_mutex != NULL) {
+        osMutexAcquire(g_tank_control_mutex, osWaitForever);
+    }
+
     printf("[TankControl] SetMode called: new_mode=%d (current=%d)\n", mode, g_control_mode);
     g_control_mode = mode;
+    g_mode_change_seq++;
 
     // Stop all actuators when switching to manual mode
     if (mode == CONTROL_MODE_MANUAL)
@@ -93,24 +103,52 @@ void TankControl_SetMode(ControlMode mode)
         Pump_StopAll();
         Fan_Stop();
         Heater_Off();
+        LED_Off();
         printf("[TankControl] Switched to MANUAL mode - all actuators stopped\n");
     }
     else
     {
         printf("[TankControl] Switched to AUTO mode\n");
     }
+
+    if (g_tank_control_mutex != NULL) {
+        osMutexRelease(g_tank_control_mutex);
+    }
 }
 
 ControlMode TankControl_GetMode(void)
 {
-    return g_control_mode;
+    ControlMode mode;
+    if (g_tank_control_mutex != NULL) {
+        osMutexAcquire(g_tank_control_mutex, osWaitForever);
+    }
+    mode = g_control_mode;
+    if (g_tank_control_mutex != NULL) {
+        osMutexRelease(g_tank_control_mutex);
+    }
+    return mode;
 }
 
 void TankControl_SetParams(const TankParams *params)
 {
     if (params != NULL)
     {
+        if (g_tank_control_mutex != NULL) {
+            osMutexAcquire(g_tank_control_mutex, osWaitForever);
+        }
+
         memcpy(&g_current_params, params, sizeof(TankParams));
+        if (g_current_params.waterLevelMin < 0) g_current_params.waterLevelMin = 0;
+        if (g_current_params.waterLevelMax > 100) g_current_params.waterLevelMax = 100;
+        if (g_current_params.waterLevelMin > g_current_params.waterLevelMax) {
+            int tmp = g_current_params.waterLevelMin;
+            g_current_params.waterLevelMin = g_current_params.waterLevelMax;
+            g_current_params.waterLevelMax = tmp;
+        }
+
+        if (g_tank_control_mutex != NULL) {
+            osMutexRelease(g_tank_control_mutex);
+        }
     }
 }
 
@@ -123,13 +161,22 @@ void TankControl_SetPlantType(int plantType)
 {
     if (plantType >= 0 && plantType < 8)
     {
+        if (g_tank_control_mutex != NULL) {
+            osMutexAcquire(g_tank_control_mutex, osWaitForever);
+        }
         memcpy(&g_current_params, &g_plant_params[plantType], sizeof(TankParams));
+        if (g_tank_control_mutex != NULL) {
+            osMutexRelease(g_tank_control_mutex);
+        }
     }
 }
 
 // Manual control functions
 void TankControl_ManualLED(int on)
 {
+    if (g_tank_control_mutex != NULL) {
+        osMutexAcquire(g_tank_control_mutex, osWaitForever);
+    }
     printf("[TankControl] ManualLED called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
@@ -141,10 +188,16 @@ void TankControl_ManualLED(int on)
     {
         printf("[TankControl] ManualLED ignored - not in manual mode\n");
     }
+    if (g_tank_control_mutex != NULL) {
+        osMutexRelease(g_tank_control_mutex);
+    }
 }
 
 void TankControl_ManualFillPump(int on)
 {
+    if (g_tank_control_mutex != NULL) {
+        osMutexAcquire(g_tank_control_mutex, osWaitForever);
+    }
     printf("[TankControl] ManualFillPump called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
@@ -155,10 +208,16 @@ void TankControl_ManualFillPump(int on)
     {
         printf("[TankControl] ManualFillPump ignored - not in manual mode\n");
     }
+    if (g_tank_control_mutex != NULL) {
+        osMutexRelease(g_tank_control_mutex);
+    }
 }
 
 void TankControl_ManualDrainPump(int on)
 {
+    if (g_tank_control_mutex != NULL) {
+        osMutexAcquire(g_tank_control_mutex, osWaitForever);
+    }
     printf("[TankControl] ManualDrainPump called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
@@ -169,10 +228,16 @@ void TankControl_ManualDrainPump(int on)
     {
         printf("[TankControl] ManualDrainPump ignored - not in manual mode\n");
     }
+    if (g_tank_control_mutex != NULL) {
+        osMutexRelease(g_tank_control_mutex);
+    }
 }
 
 void TankControl_ManualHeater(int on)
 {
+    if (g_tank_control_mutex != NULL) {
+        osMutexAcquire(g_tank_control_mutex, osWaitForever);
+    }
     printf("[TankControl] ManualHeater called: on=%d, mode=%d\n", on, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
@@ -184,10 +249,16 @@ void TankControl_ManualHeater(int on)
     {
         printf("[TankControl] ManualHeater ignored - not in manual mode\n");
     }
+    if (g_tank_control_mutex != NULL) {
+        osMutexRelease(g_tank_control_mutex);
+    }
 }
 
 void TankControl_ManualFan(int speed)
 {
+    if (g_tank_control_mutex != NULL) {
+        osMutexAcquire(g_tank_control_mutex, osWaitForever);
+    }
     printf("[TankControl] ManualFan called: speed=%d, mode=%d\n", speed, g_control_mode);
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
@@ -198,27 +269,23 @@ void TankControl_ManualFan(int speed)
     {
         printf("[TankControl] ManualFan ignored - not in manual mode\n");
     }
+    if (g_tank_control_mutex != NULL) {
+        osMutexRelease(g_tank_control_mutex);
+    }
 }
 
 // Check for safety conditions and trigger alarms
-// Note: In MANUAL mode, only triggers alarms but does NOT control actuators
-// This ensures manual mode has highest priority
 static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue, int turbidityValue)
 {
     char alarmMsg[64] = "";
-    int isManualMode = (g_control_mode == CONTROL_MODE_MANUAL);
 
     // Critical water level check
     if (waterLevel <= WATER_LEVEL_CRITICAL_LOW)
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water level critical: %d%%", waterLevel);
         Alarm_Trigger(ALARM_DANGER, alarmMsg);
-        // Only control actuators in AUTO mode - manual mode has priority
-        if (!isManualMode)
-        {
-            Pump_StopDrain();  // Prevent dry running
-            Heater_Off();      // Prevent dry burning
-        }
+        Pump_StopDrain();  // Prevent dry running
+        Heater_Off();      // Prevent dry burning
         return;
     }
 
@@ -226,11 +293,7 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue,
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water level too high: %d%%", waterLevel);
         Alarm_Trigger(ALARM_WARNING, alarmMsg);
-        // Only control actuators in AUTO mode
-        if (!isManualMode)
-        {
-            Pump_StopFill();
-        }
+        Pump_StopFill();
         return;
     }
 
@@ -239,12 +302,8 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue,
     {
         snprintf(alarmMsg, sizeof(alarmMsg), "Water temp critical: %.1fC", waterTemp);
         Alarm_Trigger(ALARM_DANGER, alarmMsg);
-        // Only control actuators in AUTO mode - manual mode has priority
-        if (!isManualMode)
-        {
-            Heater_Off();
-            Fan_SetSpeed(100);  // Maximum cooling
-        }
+        Heater_Off();
+        Fan_SetSpeed(100);  // Maximum cooling
         return;
     }
 
@@ -279,9 +338,9 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue,
 }
 
 // Automatic water level control
-static void AutoWaterLevelControl(int waterLevel)
+static void AutoWaterLevelControl(int waterLevel, const TankParams *params)
 {
-    if (waterLevel < g_current_params.waterLevelMin)
+    if (waterLevel < params->waterLevelMin)
     {
         // Water level too low - start filling
         if (Pump_GetState(PUMP_FILL) == PUMP_OFF)
@@ -289,7 +348,7 @@ static void AutoWaterLevelControl(int waterLevel)
             Pump_StartFill();
         }
     }
-    else if (waterLevel >= g_current_params.waterLevelMax)
+    else if (waterLevel >= params->waterLevelMax)
     {
         // Water level reached upper limit - stop filling
         if (Pump_GetState(PUMP_FILL) == PUMP_ON)
@@ -300,9 +359,9 @@ static void AutoWaterLevelControl(int waterLevel)
 }
 
 // Automatic temperature control
-static void AutoTemperatureControl(float waterTemp)
+static void AutoTemperatureControl(float waterTemp, const TankParams *params)
 {
-    if (waterTemp < g_current_params.waterTempMin)
+    if (waterTemp < params->waterTempMin)
     {
         // Temperature too low - enable heater, stop fan
         if (!Heater_GetState())
@@ -314,7 +373,7 @@ static void AutoTemperatureControl(float waterTemp)
             Fan_Stop();
         }
     }
-    else if (waterTemp > g_current_params.waterTempMax)
+    else if (waterTemp > params->waterTempMax)
     {
         // Temperature too high - enable fan, stop heater
         if (Heater_GetState())
@@ -322,7 +381,7 @@ static void AutoTemperatureControl(float waterTemp)
             Heater_Off();
         }
         // Calculate fan speed based on temperature difference
-        float tempDiff = waterTemp - g_current_params.waterTempMax;
+        float tempDiff = waterTemp - params->waterTempMax;
         int fanSpeed = (int)(tempDiff * 20);  // 20% per degree over max
         if (fanSpeed < 30) fanSpeed = 30;
         if (fanSpeed > 100) fanSpeed = 100;
@@ -346,9 +405,9 @@ static void AutoTemperatureControl(float waterTemp)
 }
 
 // Automatic light control
-static void AutoLightControl(int lightIntensity)
+static void AutoLightControl(int lightIntensity, const TankParams *params)
 {
-    if (lightIntensity < g_current_params.lightThreshold)
+    if (lightIntensity < params->lightThreshold)
     {
         // Too dark - enable LED
         if (!LED_GetState())
@@ -375,6 +434,10 @@ static void TankControl_Task(void *arg)
 
     while (1)
     {
+        TankParams paramsSnapshot;
+        ControlMode modeSnapshot;
+        uint32_t modeSeqSnapshot;
+
         // Update all sensor readings
         WaterLevel_Update();
         LightSensor_Update();
@@ -389,15 +452,37 @@ static void TankControl_Task(void *arg)
         int turbidityValue = Get_TurbidityValue();
         int lightIntensity = Get_LightIntensity();
 
+        if (g_tank_control_mutex != NULL) {
+            osMutexAcquire(g_tank_control_mutex, osWaitForever);
+        }
+        paramsSnapshot = g_current_params;
+        modeSnapshot = g_control_mode;
+        modeSeqSnapshot = g_mode_change_seq;
+        if (g_tank_control_mutex != NULL) {
+            osMutexRelease(g_tank_control_mutex);
+        }
+
         // Always check safety conditions regardless of mode
         CheckSafetyConditions(waterLevel, waterTemp, tdsValue, turbidityValue);
 
         // Apply automatic control if in AUTO mode
-        if (g_control_mode == CONTROL_MODE_AUTO)
+        if (modeSnapshot == CONTROL_MODE_AUTO)
         {
-            AutoWaterLevelControl(waterLevel);
-            AutoTemperatureControl(waterTemp);
-            AutoLightControl(lightIntensity);
+            // Re-check mode sequence to avoid stale auto actions after mode switch
+            int canApplyAuto = 1;
+            if (g_tank_control_mutex != NULL) {
+                osMutexAcquire(g_tank_control_mutex, osWaitForever);
+                if (g_control_mode != CONTROL_MODE_AUTO || g_mode_change_seq != modeSeqSnapshot) {
+                    canApplyAuto = 0;
+                }
+                osMutexRelease(g_tank_control_mutex);
+            }
+
+            if (canApplyAuto) {
+                AutoWaterLevelControl(waterLevel, &paramsSnapshot);
+                AutoTemperatureControl(waterTemp, &paramsSnapshot);
+                AutoLightControl(lightIntensity, &paramsSnapshot);
+            }
         }
 
         // Control loop runs every 2 seconds

@@ -21,7 +21,6 @@
 #include "oled_ssd1306.h"
 #include "i2c_common.h"
 #include "water_level.h"
-#include "ds18b20.h"
 #include "tds_sensor.h"
 #include "turbidity_sensor.h"
 #include "light_sensor.h"
@@ -129,10 +128,8 @@ static void RenderStatusPage(char *line, size_t lineSize)
              MQTT_IsConnected() ? "Connected" : "Disconn.  ");
     OledShowString(0, 3, line, 1);
 
-    // Line 4: DS18B20 sensor
-    snprintf(line, lineSize, "TempSensor: %s",
-             DS18B20_IsPresent() ? "OK" : "N/A");
-    OledShowString(0, 4, line, 1);
+    // Line 4: Reserved (DS18B20 status removed per requirement)
+    OledShowString(0, 4, "                ", 1);
 
     // Line 5: Alarm message (truncated)
     const char *alarmMsg = Alarm_GetMessage();

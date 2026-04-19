@@ -30,9 +30,13 @@
 
 static PumpStatus g_drain_pump_status = PUMP_OFF;
 static PumpStatus g_fill_pump_status = PUMP_OFF;
+static osMutexId_t g_pump_mutex = NULL;
 
 void Pump_Init(void)
 {
+    // Create mutex for thread-safe pump operations
+    g_pump_mutex = osMutexNew(NULL);
+
     // Initialize drain pump relay pin
     IoSetFunc(DRAIN_PUMP_RELAY_IO, WIFI_IOT_IO_FUNC_GPIO_0_GPIO);
     GpioSetDir(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_DIR_OUT);
@@ -61,10 +65,18 @@ void Pump_Init(void)
 
 void Pump_SetState(PumpType pump, PumpStatus status)
 {
+    if (g_pump_mutex != NULL) {
+        osMutexAcquire(g_pump_mutex, osWaitForever);
+    }
+
     if (pump == PUMP_DRAIN)
     {
         if (status == PUMP_ON)
         {
+            // Interlock: drain and fill pumps must never run simultaneously
+            GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
+            g_fill_pump_status = PUMP_OFF;
+
             // Relay ON (active-low)
             GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_drain_pump_status = PUMP_ON;
@@ -80,6 +92,10 @@ void Pump_SetState(PumpType pump, PumpStatus status)
     {
         if (status == PUMP_ON)
         {
+            // Interlock: fill and drain pumps must never run simultaneously
+            GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
+            g_drain_pump_status = PUMP_OFF;
+
             // Relay ON (active-low)
             GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE0);
             g_fill_pump_status = PUMP_ON;
@@ -91,15 +107,32 @@ void Pump_SetState(PumpType pump, PumpStatus status)
             g_fill_pump_status = PUMP_OFF;
         }
     }
+
+    if (g_pump_mutex != NULL) {
+        osMutexRelease(g_pump_mutex);
+    }
 }
 
 PumpStatus Pump_GetState(PumpType pump)
 {
+    PumpStatus status;
+    if (g_pump_mutex != NULL) {
+        osMutexAcquire(g_pump_mutex, osWaitForever);
+    }
+
     if (pump == PUMP_DRAIN)
     {
-        return g_drain_pump_status;
+        status = g_drain_pump_status;
     }
-    return g_fill_pump_status;
+    else
+    {
+        status = g_fill_pump_status;
+    }
+
+    if (g_pump_mutex != NULL) {
+        osMutexRelease(g_pump_mutex);
+    }
+    return status;
 }
 
 void Pump_StartDrain(void)
@@ -124,6 +157,16 @@ void Pump_StopFill(void)
 
 void Pump_StopAll(void)
 {
-    Pump_StopDrain();
-    Pump_StopFill();
+    if (g_pump_mutex != NULL) {
+        osMutexAcquire(g_pump_mutex, osWaitForever);
+    }
+
+    GpioSetOutputVal(DRAIN_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
+    GpioSetOutputVal(FILL_PUMP_RELAY_GPIO, WIFI_IOT_GPIO_VALUE1);
+    g_drain_pump_status = PUMP_OFF;
+    g_fill_pump_status = PUMP_OFF;
+
+    if (g_pump_mutex != NULL) {
+        osMutexRelease(g_pump_mutex);
+    }
 }
