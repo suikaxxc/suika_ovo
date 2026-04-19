@@ -45,12 +45,11 @@ interface SettingsData {
 @Entry
 @Component
 struct Index {
-  private static readonly TAB_STATUS: number = 0;
-  private static readonly TAB_CONTROL: number = 1;
-  private static readonly TAB_SETTINGS: number = 2;
-  private static readonly TAB_AI: number = 3;
+  private static readonly TAB_CONTROL: number = 0;
+  private static readonly TAB_SETTINGS: number = 1;
+  private static readonly TAB_AI: number = 2;
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
-  @State currentTab: number = Index.TAB_STATUS;
+  @State currentTab: number = Index.TAB_CONTROL;
   @State showHeader: boolean = true;
   @State headerBlur: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
@@ -59,7 +58,7 @@ struct Index {
   private lastNotifiedAlarmStatus: number = 0;
   private lastNotifiedAlarmMessage: string = '';
   private notificationEnabled: boolean = true;
-  private lastTabScrollOffsets: number[] = [0, 0, 0, 0];
+  private lastTabScrollOffsets: number[] = [0, 0, 0];
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -277,27 +276,13 @@ struct Index {
       .clip(true)
       .animation({ duration: 260, curve: Curve.EaseInOut })
 
-      // 内容区域（四入口功能区）
+      // 内容区域（顶部状态 + 三入口功能区）
       Column() {
-        // Tab功能区：占据剩余空间，确保四个入口（实时状态/设备管理/养护设置/AI建议）单屏可见
-        Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
-          TabContent() {
-            Scroll() {
-              Column() {
-                StatusComponent({ item: this.item })
-              }
-              .width('100%')
-              .padding({ top: 10, bottom: 10 })
-            }
-            .scrollBar(BarState.Auto)
-            .scrollable(ScrollDirection.Vertical)
-            .onDidScroll((xOffset: number, yOffset: number) => {
-              void xOffset;
-              this.handleTabScroll(Index.TAB_STATUS, yOffset);
-            })
-          }
-          .tabBar(this.TabBuilder(Index.TAB_STATUS, "实时状态", $r('app.media.turbidity')))
+        StatusComponent({ item: this.item })
+          .margin({ top: 10, bottom: 10 })
 
+        // Tab功能区：占据剩余空间，确保三个入口（设备管理/养护设置/AI建议）单屏可见
+        Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
           TabContent() {
             ControlComponent({
               item: $item,
