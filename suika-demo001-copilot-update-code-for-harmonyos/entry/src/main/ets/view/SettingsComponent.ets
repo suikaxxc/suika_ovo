@@ -22,7 +22,6 @@ export struct SettingsComponent {
   // 回调函数不能使用@Prop装饰器，直接作为普通属性传递
   onSettingsChange: (settings: SettingsChangeData) => void = () => {
   };
-  onScrollOffsetChange: (offsetY: number) => void = () => {};
 
   // 使用@State变量存储推荐参数，确保UI能够正确更新
   @State recommendedWaterTempMin: number = 18;
@@ -255,10 +254,6 @@ export struct SettingsComponent {
     }
     .scrollBar(BarState.Auto)
     .scrollable(ScrollDirection.Vertical)
-    .onDidScroll((xOffset: number, yOffset: number) => {
-      void xOffset;
-      this.onScrollOffsetChange(yOffset);
-    })
     .width('100%')
     .height('100%')
   }

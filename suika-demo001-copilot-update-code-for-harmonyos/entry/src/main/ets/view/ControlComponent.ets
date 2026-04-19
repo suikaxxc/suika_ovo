@@ -12,7 +12,6 @@ export struct ControlComponent {
 
   // 回调函数不能使用@Prop装饰器，直接作为普通属性传递
   onControlChange: (controlType: string, value: number) => void = () => {};
-  onScrollOffsetChange: (offsetY: number) => void = () => {};
 
   // 用于防止Toggle onChange被MQTT同步触发时发送重复命令
   // 记录上次已知的模式值（从item.controlMode或上次发送的值）
@@ -363,10 +362,6 @@ export struct ControlComponent {
     }
     .scrollBar(BarState.Auto)
     .scrollable(ScrollDirection.Vertical)
-    .onDidScroll((xOffset: number, yOffset: number) => {
-      void xOffset;
-      this.onScrollOffsetChange(yOffset);
-    })
     .width('100%')
     .height('100%')
   }
