@@ -1,14 +1,11 @@
 import { AIComponent } from '../view/AIComponent';
 import { StatusComponent } from '../view/StatusComponent';
 import { ControlComponent } from '../view/ControlComponent';
-import { DataDebugComponent } from '../view/DataDebugComponent';
 import { SettingsComponent, SettingsChangeData } from '../view/SettingsComponent';
 import AquaticTankViewModel from '../viewmodel/AquaticTankViewModel';
 import { MqttMessage } from '@ohos/mqtt';
 import MQTTUtil from '../common/utils/MQTTUtil';
 import { PlantParamsConfig } from '../common/constants/Constant';
-import { notificationManager } from '@kit.NotificationKit';
-import { promptAction } from '@kit.ArkUI';
 
 interface MqttData {
   waterLevel?: number;
@@ -51,19 +48,12 @@ struct Index {
   private static readonly TAB_CONTROL: number = 1;
   private static readonly TAB_SETTINGS: number = 2;
   private static readonly TAB_AI: number = 3;
-  private static readonly TAB_DEBUG: number = 4;
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = Index.TAB_STATUS;
   @State showHeader: boolean = true;
   @State headerBlur: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
-  private readonly alarmNotificationId: number = 1001;
-  private static readonly DEFAULT_ALARM_MESSAGE: string = '水生植物养殖缸检测到异常，请及时处理';
-  private lastNotifiedAlarmStatus: number = 0;
-  private lastNotifiedAlarmMessage: string = '';
-  private notificationEnabled: boolean = true;
-  private lastTabScrollOffsets: number[] = [0, 0, 0, 0, 0];
-  @State manualDataMode: boolean = false;
+  private lastTabScrollOffsets: number[] = [0, 0, 0, 0];
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -81,7 +71,6 @@ struct Index {
     this.initMockData();
 
     // 连接MQTT接收实时数据
-    this.refreshNotificationPermission();
     this.mqttUtil.connect(
       (arg1: Error | MqttMessage, arg2?: MqttMessage) => {
         // 兼容两种回调签名：
@@ -112,17 +101,14 @@ struct Index {
           const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
           const isDebouncing = (now - lastUserAction) < Index.MODE_SYNC_DEBOUNCE_MS;
 
-          // 更新传感器数据（手动演示模式下不覆盖）
-          if (!this.manualDataMode) {
-            this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
-            this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
-            this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
-            this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
-            this.item.turbidityValue = receivedData.turbidityValue ?? this.item.turbidityValue;
-          }
+          // 更新传感器数据
+          this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
+          this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
+          this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
+          this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
+          this.item.turbidityValue = receivedData.turbidityValue ?? this.item.turbidityValue;
           this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
           this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
-          this.syncAlarmNotification(this.item.alarmStatus, this.item.alarmMessage);
 
           // 执行器状态：只在非防抖期间从硬件同步，防止用户手动控制被覆盖
           if (!isDebouncing) {
@@ -234,51 +220,6 @@ struct Index {
     this.mqttUtil.publish(JSON.stringify(settingsData));
   }
 
-  private syncAlarmNotification(alarmStatus: number, alarmMessage: string): void {
-    const message = alarmMessage && alarmMessage.length > 0 ? alarmMessage : Index.DEFAULT_ALARM_MESSAGE;
-    if (alarmStatus > 0) {
-      if (this.lastNotifiedAlarmStatus === alarmStatus && this.lastNotifiedAlarmMessage === message) {
-        return;
-      }
-      const request: notificationManager.NotificationRequest = {
-        id: this.alarmNotificationId,
-        content: {
-          notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
-          normal: {
-            title: '智能养殖缸报警',
-            text: message,
-            additionalText: `报警等级：${alarmStatus}`
-          }
-        }
-      };
-      if (!this.notificationEnabled) {
-        promptAction.showToast({
-          message: '检测到报警，请在系统设置中开启通知以接收APP信息通报',
-          duration: 2200
-        });
-      }
-      notificationManager.publish(request).catch((err: Error) => {
-        console.error('发布报警通知失败:', JSON.stringify(err));
-      });
-    } else if (this.lastNotifiedAlarmStatus > 0) {
-      notificationManager.cancel(this.alarmNotificationId).catch((err: Error) => {
-        console.error('清理报警通知失败:', JSON.stringify(err));
-      });
-    }
-    this.lastNotifiedAlarmStatus = alarmStatus;
-    this.lastNotifiedAlarmMessage = alarmStatus > 0 ? message : '';
-  }
-
-  private refreshNotificationPermission(): void {
-    notificationManager.isNotificationEnabled().then((enabled: boolean) => {
-      this.notificationEnabled = enabled;
-      console.info(`系统通知开关状态: ${enabled}`);
-    }).catch((err: Error) => {
-      this.notificationEnabled = true;
-      console.error('获取通知权限状态失败:', JSON.stringify(err));
-    });
-  }
-
   private handleTabScroll(tabIndex: number, offsetY: number): void {
     const safeOffset = Math.max(0, offsetY);
     const lastOffset = this.lastTabScrollOffsets[tabIndex] ?? 0;
@@ -371,14 +312,6 @@ struct Index {
           }
           .tabBar(this.TabBuilder(Index.TAB_AI, "AI建议", $r('app.media.ai')))
 
-          TabContent() {
-            DataDebugComponent({
-              item: $item,
-              manualDataMode: $manualDataMode,
-              onScrollOffsetChange: (offsetY: number) => this.handleTabScroll(Index.TAB_DEBUG, offsetY)
-            })
-          }
-          .tabBar(this.TabBuilder(Index.TAB_DEBUG, "数据调试", $r('app.media.settings')))
         }
         .layoutWeight(1)
         .width('100%')
