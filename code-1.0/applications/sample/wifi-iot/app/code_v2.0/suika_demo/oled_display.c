@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #include "ohos_init.h"
@@ -184,7 +185,7 @@ static void OledDisplay_Task(void *arg)
         tickFreq = 1000; // fallback
     }
     // Ceiling division avoids integer truncation causing interval shorter than requested milliseconds.
-    autoSwitchIntervalTicks = (AUTO_PAGE_SWITCH_INTERVAL_MS * tickFreq + (MS_PER_SECOND - 1)) / MS_PER_SECOND;
+    autoSwitchIntervalTicks = (uint32_t)(((uint64_t)AUTO_PAGE_SWITCH_INTERVAL_MS * tickFreq + (MS_PER_SECOND - 1)) / MS_PER_SECOND);
     if (autoSwitchIntervalTicks == 0) {
         autoSwitchIntervalTicks = 1;
     }
