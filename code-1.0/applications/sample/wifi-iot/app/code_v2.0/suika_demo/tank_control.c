@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
@@ -469,11 +470,11 @@ static void TankControl_Task(void *arg)
         if (modeSnapshot == CONTROL_MODE_AUTO)
         {
             // Re-check mode sequence to avoid stale auto actions after mode switch
-            int canApplyAuto = 1;
+            bool canApplyAuto = true;
             if (g_tank_control_mutex != NULL) {
                 osMutexAcquire(g_tank_control_mutex, osWaitForever);
                 if (g_control_mode != CONTROL_MODE_AUTO || g_mode_change_seq != modeSeqSnapshot) {
-                    canApplyAuto = 0;
+                    canApplyAuto = false;
                 }
                 osMutexRelease(g_tank_control_mutex);
             }

@@ -51,16 +51,16 @@ static int g_mqtt_socket = -1;
 
 #define YW01_MAX_MM 90
 
-static int ClampInt(int value, int min, int max)
+static int mqtt_clamp_int(int value, int min, int max)
 {
     if (value < min) return min;
     if (value > max) return max;
     return value;
 }
 
-static int WaterLevelMmToPercent(int mm)
+static int mqtt_water_level_mm_to_percent(int mm)
 {
-    int mmClamped = ClampInt(mm, 0, YW01_MAX_MM);
+    int mmClamped = mqtt_clamp_int(mm, 0, YW01_MAX_MM);
     return (mmClamped * 100) / YW01_MAX_MM;
 }
 
@@ -217,13 +217,13 @@ static void HandleControlCommand(const char *payload, int payloadLen)
             ptr = strstr(settingsBuf, "\"waterLevelMin\":");
             if (ptr) {
                 int waterLevelMinMm = atoi(ptr + 16);
-                params.waterLevelMin = WaterLevelMmToPercent(waterLevelMinMm);
+                params.waterLevelMin = mqtt_water_level_mm_to_percent(waterLevelMinMm);
             }
 
             ptr = strstr(settingsBuf, "\"waterLevelMax\":");
             if (ptr) {
                 int waterLevelMaxMm = atoi(ptr + 16);
-                params.waterLevelMax = WaterLevelMmToPercent(waterLevelMaxMm);
+                params.waterLevelMax = mqtt_water_level_mm_to_percent(waterLevelMaxMm);
             }
 
             ptr = strstr(settingsBuf, "\"lightThreshold\":");
