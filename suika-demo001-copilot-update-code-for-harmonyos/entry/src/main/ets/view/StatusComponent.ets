@@ -13,7 +13,7 @@ export struct StatusComponent {
     Column() {
       Row() {
         Text("实时状态")
-          .fontSize(20)
+          .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#243447')
         Blank()
@@ -42,7 +42,7 @@ export struct StatusComponent {
           `${this.item.waterTempMin}-${this.item.waterTempMax}°C`, this.getWaterTempColor(), '#EEF5FF')
       }
       .width('100%')
-      .margin({ bottom: 8 })
+      .margin({ bottom: 6 })
 
       Row({ space: 8 }) {
         this.MetricCard($r('app.media.light'), '光照', `${this.item.lightIntensity} lux`,
@@ -51,13 +51,11 @@ export struct StatusComponent {
           `${this.item.tdsMin}-${this.item.tdsMax} ppm`, this.getTdsColor(), '#F1F7FF')
       }
       .width('100%')
-      .margin({ bottom: 8 })
+      .margin({ bottom: 6 })
 
       Row({ space: 8 }) {
         this.MetricCard($r('app.media.turbidity'), '浊度', `${this.item.turbidityValue} NTU`,
           this.item.turbidityValue >= 700 ? '建议换水' : '状态正常', this.getTurbidityColor(), '#F7F2FF')
-        this.MetricCard($r('app.media.plant'), '更新时间', this.item.lastUpdateTime || '--:--:--',
-          '实时同步', '#42A5F5', '#EEF7FF')
       }
       .width('100%')
 
@@ -76,10 +74,10 @@ export struct StatusComponent {
         .padding({ left: 10, right: 10, top: 8, bottom: 8 })
         .borderRadius(10)
         .backgroundColor('#FFF0EE')
-        .margin({ top: 10 })
+        .margin({ top: 8 })
       }
     }
-    .padding(12)
+    .padding(10)
     .width('94%')
     .borderRadius(16)
     .backgroundColor('#FFFFFF')
@@ -95,27 +93,27 @@ export struct StatusComponent {
           .width(18)
           .height(18)
         Text(title)
-          .fontSize(13)
+          .fontSize(12)
           .fontColor('#5F6B7A')
           .margin({ left: 6 })
       }
       .width('100%')
 
       Text(value)
-        .fontSize(20)
+        .fontSize(16)
         .fontWeight(FontWeight.Bold)
         .fontColor(valueColor)
-        .margin({ top: 6 })
+        .margin({ top: 4 })
         .width('100%')
 
       Text(subText)
-        .fontSize(11)
+        .fontSize(10)
         .fontColor('#8E99A7')
         .margin({ top: 2 })
         .width('100%')
     }
     .layoutWeight(1)
-    .padding({ left: 10, right: 10, top: 10, bottom: 10 })
+    .padding({ left: 8, right: 8, top: 8, bottom: 8 })
     .borderRadius(12)
     .backgroundColor(bgColor)
   }
