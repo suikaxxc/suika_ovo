@@ -50,7 +50,7 @@ struct Index {
   private static readonly TAB_SETTINGS: number = 2;
   private static readonly TAB_AI: number = 3;
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
-  @State currentTab: number = Index.TAB_CONTROL;
+  @State currentTab: number = Index.TAB_STATUS;
   @State showHeader: boolean = true;
   @State headerBlur: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
