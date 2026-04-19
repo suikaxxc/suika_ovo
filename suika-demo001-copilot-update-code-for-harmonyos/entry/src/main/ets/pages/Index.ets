@@ -33,6 +33,7 @@ interface ControlData {
 
 interface SettingsData {
   type: string;
+  plantTypeIndex?: number;
   waterTempMin?: number;
   waterTempMax?: number;
   waterLevelMin?: number;
@@ -45,11 +46,12 @@ interface SettingsData {
 @Entry
 @Component
 struct Index {
-  private static readonly TAB_CONTROL: number = 0;
-  private static readonly TAB_SETTINGS: number = 1;
-  private static readonly TAB_AI: number = 2;
+  private static readonly TAB_STATUS: number = 0;
+  private static readonly TAB_CONTROL: number = 1;
+  private static readonly TAB_SETTINGS: number = 2;
+  private static readonly TAB_AI: number = 3;
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
-  @State currentTab: number = Index.TAB_CONTROL;
+  @State currentTab: number = Index.TAB_STATUS;
   @State showHeader: boolean = true;
   @State headerBlur: number = 0;
   private mqttUtil: MQTTUtil = new MQTTUtil();
@@ -58,7 +60,7 @@ struct Index {
   private lastNotifiedAlarmStatus: number = 0;
   private lastNotifiedAlarmMessage: string = '';
   private notificationEnabled: boolean = true;
-  private lastTabScrollOffsets: number[] = [0, 0, 0];
+  private lastTabScrollOffsets: number[] = [0, 0, 0, 0];
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
   // 用户最后一次发送任何控制命令的时间戳，用于防止在手动控制期间被自动模式覆盖
@@ -171,9 +173,31 @@ struct Index {
 
   handleSettingsChange(settings: SettingsChangeData): void {
     console.info('设置更新:', JSON.stringify(settings));
+    if (settings.plantTypeIndex !== undefined) {
+      const plantData: ControlData = {
+        type: 'plant',
+        value: settings.plantTypeIndex,
+        timestamp: Date.now()
+      };
+      this.mqttUtil.publish(JSON.stringify(plantData));
+    }
+
+    const shouldSendSettings: boolean =
+      settings.waterTempMin !== undefined ||
+      settings.waterTempMax !== undefined ||
+      settings.waterLevelMin !== undefined ||
+      settings.waterLevelMax !== undefined ||
+      settings.lightThreshold !== undefined ||
+      settings.lightDuration !== undefined;
+
+    if (!shouldSendSettings) {
+      return;
+    }
+
     // 通过MQTT发送养护参数到硬件端
     const settingsData: SettingsData = {
       type: 'settings',
+      plantTypeIndex: settings.plantTypeIndex,
       waterTempMin: settings.waterTempMin,
       waterTempMax: settings.waterTempMax,
       waterLevelMin: settings.waterLevelMin,
@@ -276,13 +300,26 @@ struct Index {
       .clip(true)
       .animation({ duration: 260, curve: Curve.EaseInOut })
 
-      // 内容区域（顶部状态 + 三入口功能区）
+      // 内容区域（导航栏控制四个页面）
       Column() {
-        StatusComponent({ item: this.item })
-          .margin({ top: 10, bottom: 10 })
+        // Tab功能区：占据剩余空间，确保四个页面单屏完整可见
+        Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
+          TabContent() {
+            Scroll() {
+              StatusComponent({ item: this.item })
+                .margin({ top: 10, bottom: 10 })
+            }
+            .scrollBar(BarState.Auto)
+            .scrollable(ScrollDirection.Vertical)
+            .onDidScroll((xOffset: number, yOffset: number) => {
+              void xOffset;
+              this.handleTabScroll(Index.TAB_STATUS, yOffset);
+            })
+            .width('100%')
+            .height('100%')
+          }
+          .tabBar(this.TabBuilder(Index.TAB_STATUS, "状态总览", $r('app.media.aquarium')))
 
-        // Tab功能区：占据剩余空间，确保三个入口（设备管理/养护设置/AI建议）单屏可见
-        Tabs({ barPosition: BarPosition.Start, index: this.currentTab }) {
           TabContent() {
             ControlComponent({
               item: $item,
@@ -313,7 +350,7 @@ struct Index {
         .width('100%')
         .barMode(BarMode.Fixed)
         .barWidth('100%')
-        .barHeight(58)
+        .barHeight(56)
         .backgroundColor('#F0F4F8')
         .clip(true)
         .onChange((index: number) => {
