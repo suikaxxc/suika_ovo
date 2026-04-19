@@ -80,46 +80,58 @@ struct Index {
     // 连接MQTT接收实时数据
     this.refreshNotificationPermission();
     this.mqttUtil.connect(
-      (err: Error, data: MqttMessage) => {
-        if (!err && data?.payload) {
-          try {
-            const receivedData: MqttData = JSON.parse(String(data.payload));
-            const now = Date.now();
-            // 计算用户最后一次操作的时间
-            const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
-            const isDebouncing = (now - lastUserAction) < Index.MODE_SYNC_DEBOUNCE_MS;
+      (arg1: Error | MqttMessage, arg2?: MqttMessage) => {
+        // 兼容两种回调签名：
+        // 1) (data)
+        // 2) (err, data)
+        const data = arg2 ?? ((arg1 as MqttMessage).payload !== undefined ? arg1 as MqttMessage : undefined);
+        const err = arg2 ? arg1 as Error : undefined;
 
-            // 更新传感器数据（这些始终更新）
-            this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
-            this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
-            this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
-            this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
-            this.item.turbidityValue = receivedData.turbidityValue ?? this.item.turbidityValue;
-            this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
-            this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
-            this.syncAlarmNotification(this.item.alarmStatus, this.item.alarmMessage);
+        if (err) {
+          console.error('MQTT消息回调异常:', err);
+        }
+        if (!data?.payload) {
+          return;
+        }
 
-            // 执行器状态：只在非防抖期间从硬件同步，防止用户手动控制被覆盖
-            if (!isDebouncing) {
-              this.item.pumpStatus = receivedData.pumpStatus ?? this.item.pumpStatus;
-              this.item.waterPumpStatus = receivedData.waterPumpStatus ?? this.item.waterPumpStatus;
-              this.item.heaterStatus = receivedData.heaterStatus ?? this.item.heaterStatus;
-              this.item.fanSpeed = receivedData.fanSpeed ?? this.item.fanSpeed;
-              this.item.ledStatus = receivedData.ledStatus ?? this.item.ledStatus;
-              // 控制模式也在非防抖期间同步
-              if (receivedData.controlMode !== undefined) {
-                this.item.controlMode = receivedData.controlMode;
-              }
-            } else {
-              // 防抖期间，记录日志但不同步执行器状态和控制模式
-              console.info('防抖中: 忽略硬件状态同步，剩余时间=' + 
-                (Index.MODE_SYNC_DEBOUNCE_MS - (now - lastUserAction)) + 'ms');
+        try {
+          const receivedData: MqttData = JSON.parse(String(data.payload));
+          const now = Date.now();
+          // 计算用户最后一次操作的时间
+          const lastUserAction = Math.max(this.lastModeChangeTime, this.lastControlCommandTime);
+          const isDebouncing = (now - lastUserAction) < Index.MODE_SYNC_DEBOUNCE_MS;
+
+          // 更新传感器数据（这些始终更新）
+          this.item.waterLevel = receivedData.waterLevel ?? this.item.waterLevel;
+          this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
+          this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
+          this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
+          this.item.turbidityValue = receivedData.turbidityValue ?? this.item.turbidityValue;
+          this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
+          this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
+          this.syncAlarmNotification(this.item.alarmStatus, this.item.alarmMessage);
+
+          // 执行器状态：只在非防抖期间从硬件同步，防止用户手动控制被覆盖
+          if (!isDebouncing) {
+            this.item.pumpStatus = receivedData.pumpStatus ?? this.item.pumpStatus;
+            this.item.waterPumpStatus = receivedData.waterPumpStatus ?? this.item.waterPumpStatus;
+            this.item.heaterStatus = receivedData.heaterStatus ?? this.item.heaterStatus;
+            this.item.fanSpeed = receivedData.fanSpeed ?? this.item.fanSpeed;
+            this.item.ledStatus = receivedData.ledStatus ?? this.item.ledStatus;
+            // 控制模式也在非防抖期间同步
+            if (receivedData.controlMode !== undefined) {
+              this.item.controlMode = receivedData.controlMode;
             }
-            this.item.wifiStatus = 1; // 收到数据说明已连接
-            this.item.lastUpdateTime = new Date().toLocaleTimeString();
-          } catch (e) {
-            console.error('解析MQTT数据失败:', e);
+          } else {
+            // 防抖期间，记录日志但不同步执行器状态和控制模式
+            console.info('防抖中: 忽略硬件状态同步，剩余时间=' +
+              (Index.MODE_SYNC_DEBOUNCE_MS - (now - lastUserAction)) + 'ms');
           }
+          this.item.wifiStatus = 1; // 收到数据说明已连接
+          this.item.lastUpdateTime = new Date().toLocaleTimeString();
+          console.info('MQTT实时数据同步成功:', JSON.stringify(receivedData));
+        } catch (e) {
+          console.error('解析MQTT数据失败:', e, 'payload=', String(data.payload));
         }
       }
     );
