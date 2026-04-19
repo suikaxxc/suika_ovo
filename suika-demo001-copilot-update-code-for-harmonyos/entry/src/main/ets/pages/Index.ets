@@ -84,8 +84,16 @@ struct Index {
         // 兼容两种回调签名：
         // 1) (data)
         // 2) (err, data)
-        const data = arg2 ?? ((arg1 as MqttMessage).payload !== undefined ? arg1 as MqttMessage : undefined);
-        const err = arg2 ? arg1 as Error : undefined;
+        let data: MqttMessage | undefined = undefined;
+        let err: Error | undefined = undefined;
+        if (arg2 !== undefined) {
+          err = arg1 as Error;
+          data = arg2;
+        } else if ((arg1 as MqttMessage).payload !== undefined) {
+          data = arg1 as MqttMessage;
+        } else if (arg1 instanceof Error) {
+          err = arg1;
+        }
 
         if (err) {
           console.error('MQTT消息回调异常:', err);
