@@ -18,18 +18,6 @@ export struct StatusComponent {
           .fontColor('#243447')
         Blank()
         Row() {
-          Image($r('app.media.turbidity'))
-            .width(18)
-            .height(18)
-          Text('浊度传感器')
-            .fontSize(11)
-            .fontColor('#6B7280')
-            .margin({ left: 4, right: 8 })
-        }
-        .padding({ left: 6, right: 2, top: 3, bottom: 3 })
-        .borderRadius(12)
-        .backgroundColor('#F4F7FB')
-        Row() {
           Circle()
             .width(8)
             .height(8)
@@ -68,8 +56,6 @@ export struct StatusComponent {
       Row({ space: 8 }) {
         this.MetricCard($r('app.media.turbidity'), '浊度', `${this.item.turbidityValue} NTU`,
           this.item.turbidityValue >= 700 ? '建议换水' : '状态正常', this.getTurbidityColor(), '#F7F2FF')
-        this.MetricCard($r('app.media.plant'), '更新时间', this.item.lastUpdateTime || '--:--:--',
-          '实时同步', '#42A5F5', '#EEF7FF')
       }
       .width('100%')
 
