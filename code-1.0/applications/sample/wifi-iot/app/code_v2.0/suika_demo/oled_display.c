@@ -44,7 +44,7 @@
 #define REFRESH_INTERVAL_MS 200
 
 // Auto page switch interval
-#define AUTO_PAGE_SWITCH_INTERVAL_MS 5000
+#define AUTO_PAGE_SWITCH_INTERVAL_MS 20000
 #define MS_PER_SECOND 1000U
 
 // I2C initialization delay (wait for I2C_CommonInit to complete)
