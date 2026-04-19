@@ -78,6 +78,9 @@ static uint32_t g_mode_change_seq = 0;
 void TankControl_Init(void)
 {
     g_tank_control_mutex = osMutexNew(NULL);
+    if (g_tank_control_mutex == NULL) {
+        printf("[TankControl] Warning: failed to create control mutex, fallback to unlocked mode\n");
+    }
 
     // Initialize all actuators (GPIO already initialized in I2C_CommonInit)
     Pump_Init();

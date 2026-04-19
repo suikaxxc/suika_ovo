@@ -36,6 +36,9 @@ void Pump_Init(void)
 {
     // Create mutex for thread-safe pump operations
     g_pump_mutex = osMutexNew(NULL);
+    if (g_pump_mutex == NULL) {
+        printf("[Pump] Warning: failed to create pump mutex, fallback to unlocked mode\n");
+    }
 
     // Initialize drain pump relay pin
     IoSetFunc(DRAIN_PUMP_RELAY_IO, WIFI_IOT_IO_FUNC_GPIO_0_GPIO);
