@@ -182,6 +182,7 @@ static void OledDisplay_Task(void *arg)
     if (tickFreq == 0) {
         tickFreq = 1000; // fallback
     }
+    // Ceiling division to ensure the interval is not shorter than requested milliseconds.
     autoSwitchIntervalTicks = (AUTO_PAGE_SWITCH_INTERVAL_MS * tickFreq + 999) / 1000;
     if (autoSwitchIntervalTicks == 0) {
         autoSwitchIntervalTicks = 1;
