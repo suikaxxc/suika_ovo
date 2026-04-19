@@ -45,6 +45,7 @@
 
 // Auto page switch interval
 #define AUTO_PAGE_SWITCH_INTERVAL_MS 5000
+#define MS_PER_SECOND 1000U
 
 // I2C initialization delay (wait for I2C_CommonInit to complete)
 #define I2C_INIT_DELAY_SEC 2
@@ -183,7 +184,7 @@ static void OledDisplay_Task(void *arg)
         tickFreq = 1000; // fallback
     }
     // Ceiling division to ensure the interval is not shorter than requested milliseconds.
-    autoSwitchIntervalTicks = (AUTO_PAGE_SWITCH_INTERVAL_MS * tickFreq + 999) / 1000;
+    autoSwitchIntervalTicks = (AUTO_PAGE_SWITCH_INTERVAL_MS * tickFreq + (MS_PER_SECOND - 1)) / MS_PER_SECOND;
     if (autoSwitchIntervalTicks == 0) {
         autoSwitchIntervalTicks = 1;
     }
