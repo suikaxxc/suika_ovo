@@ -53,6 +53,10 @@
 // 600 is used as a practical initial dynamic range to avoid near-zero span on boot.
 #define TURBIDITY_STARTUP_TURBID_SPAN_RAW 600
 #define TURBIDITY_MIN_EFFECTIVE_SPAN_RAW 120
+#define TURBIDITY_MAX_EFFECTIVE_SPAN_RAW 1000
+#define TURBIDITY_SAT_HIGH_RAW 4080
+#define TURBIDITY_SAT_LOW_RAW 15
+#define TURBIDITY_SAT_WARN_COUNT 20U
 
 static unsigned short g_turbidity_raw = 0;
 static float g_turbidity_vout = AZDM01_MAX_VOUT;
@@ -61,6 +65,8 @@ static int g_turbidity_initialized = 0;
 static uint32_t g_update_count = 0;
 static unsigned short g_raw_clear_ref = 0;
 static unsigned short g_raw_turbid_ref = 0;
+static uint32_t g_adc_high_saturation_count = 0;
+static uint32_t g_adc_low_saturation_count = 0;
 
 static int ReadAveragedRaw(unsigned short *rawOut)
 {
@@ -100,13 +106,48 @@ static int CalculateNTUFromRaw(unsigned short raw)
 
     // Adaptive calibration window update: clear water -> higher raw, dirty water -> lower raw.
     if (raw > g_raw_clear_ref) {
+        unsigned short prevClearRef = g_raw_clear_ref;
         g_raw_clear_ref = raw;
+        // When clear reference drifts upward (noise/offset), shift turbid reference together
+        // to avoid unbounded span inflation under long-term clear-water sampling.
+        if (g_raw_turbid_ref < g_raw_clear_ref) {
+            unsigned short delta = (unsigned short)(g_raw_clear_ref - prevClearRef);
+            unsigned short shifted = (unsigned short)(g_raw_turbid_ref + delta);
+            if (shifted < g_raw_clear_ref) {
+                g_raw_turbid_ref = shifted;
+            }
+        }
     }
     if (raw < g_raw_turbid_ref) {
         g_raw_turbid_ref = raw;
     }
 
+    if (raw >= TURBIDITY_SAT_HIGH_RAW) {
+        g_adc_high_saturation_count++;
+    } else {
+        g_adc_high_saturation_count = 0;
+    }
+    if (raw <= TURBIDITY_SAT_LOW_RAW) {
+        g_adc_low_saturation_count++;
+    } else {
+        g_adc_low_saturation_count = 0;
+    }
+    if ((g_adc_high_saturation_count == TURBIDITY_SAT_WARN_COUNT) ||
+        (g_adc_low_saturation_count == TURBIDITY_SAT_WARN_COUNT)) {
+        printf("[Turbidity][Warn] ADC saturation detected: raw=%u clear_ref=%u turbid_ref=%u "
+               "(check divider/wiring/power)\n",
+               raw, g_raw_clear_ref, g_raw_turbid_ref);
+    }
+
     int span = (int)g_raw_clear_ref - (int)g_raw_turbid_ref;
+    if (span > TURBIDITY_MAX_EFFECTIVE_SPAN_RAW) {
+        if (g_raw_clear_ref > TURBIDITY_MAX_EFFECTIVE_SPAN_RAW) {
+            g_raw_turbid_ref = (unsigned short)(g_raw_clear_ref - TURBIDITY_MAX_EFFECTIVE_SPAN_RAW);
+        } else {
+            g_raw_turbid_ref = 0;
+        }
+        span = (int)g_raw_clear_ref - (int)g_raw_turbid_ref;
+    }
     if (span < TURBIDITY_MIN_EFFECTIVE_SPAN_RAW) {
         span = TURBIDITY_MIN_EFFECTIVE_SPAN_RAW;
     }
@@ -180,6 +221,8 @@ void Turbidity_Init(void)
     g_update_count = 0;
     g_raw_clear_ref = 0;
     g_raw_turbid_ref = 0;
+    g_adc_high_saturation_count = 0;
+    g_adc_low_saturation_count = 0;
 
     // Prime one reading and initialize adaptive references.
     if (ReadAveragedRaw(&g_turbidity_raw)) {
