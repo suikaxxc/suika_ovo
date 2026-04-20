@@ -109,17 +109,13 @@ void Turbidity_Update(void)
     // Convert ADC reading to ADC pin voltage, then reconstruct sensor output voltage
     float adcVoltage = ((float)g_turbidity_raw / ADC_MAX_VALUE) * ADC_VREF_V;
     float vout = adcVoltage * TURBIDITY_DIVIDER_RATIO;
-    // Formula voltage is based on 5V-powered sensor output.
-    float voutForFormula = vout * (5.0f / AZDM01_SUPPLY_VOLTAGE_V);
 
     // Clamp to specified sensor range
     if (vout < AZDM01_MIN_VOUT) vout = AZDM01_MIN_VOUT;
     if (vout > AZDM01_MAX_VOUT) vout = AZDM01_MAX_VOUT;
-    if (voutForFormula < AZDM01_MIN_VOUT) voutForFormula = AZDM01_MIN_VOUT;
-    if (voutForFormula > AZDM01_MAX_VOUT) voutForFormula = AZDM01_MAX_VOUT;
 
     g_turbidity_vout = vout;
-    g_turbidity_ntu = CalculateNTU(voutForFormula);
+    g_turbidity_ntu = CalculateNTU(vout);
 
     g_update_count++;
     if ((g_update_count % 30U) == 0U) {
