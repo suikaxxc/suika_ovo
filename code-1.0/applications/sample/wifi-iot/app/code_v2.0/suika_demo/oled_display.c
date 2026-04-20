@@ -21,6 +21,7 @@
 #include "oled_ssd1306.h"
 #include "i2c_common.h"
 #include "water_level.h"
+#include "ds18b20.h"
 #include "tds_sensor.h"
 #include "turbidity_sensor.h"
 #include "light_sensor.h"
