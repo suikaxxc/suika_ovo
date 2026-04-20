@@ -32,7 +32,8 @@
 
 // Voltage divider reconstruction ratio for mapping ADC pin voltage back to sensor Vout.
 // ratio = Vout / Vadc = (R1 + R2) / R2 (R1: upper resistor, R2: lower resistor to GND)
-// Default assumes 4.5V -> 1.8V at ADC pin, so ratio = 4.5 / 1.8 = 2.5.
+// This value MUST match the actual resistor divider on hardware.
+// Current configuration assumes 4.5V -> 1.8V at ADC pin, so ratio = 4.5 / 1.8 = 2.5.
 #define TURBIDITY_DIVIDER_RATIO 2.5f
 
 // Simple averaging for stable ADC reading
