@@ -23,6 +23,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -55,6 +56,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
+    int turbidity = Get_TurbidityNTU();
     int lightIntensity = Get_LightIntensity();
     const TankParams *params = TankControl_GetParams();
 
@@ -74,24 +76,13 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "TDS:%dppm", tdsValue);
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Light intensity in lux
-    snprintf(line, lineSize, "Light:%dlux", lightIntensity);
+    // Line 4: Turbidity
+    snprintf(line, lineSize, "NTU:%d", turbidity);
     OledShowString(0, 4, line, 1);
 
-    // Line 5: Alarm status
-    AlarmLevel alarm = Alarm_GetLevel();
-    if (alarm == ALARM_NONE)
-    {
-        OledShowString(0, 5, "Status: OK", 1);
-    }
-    else if (alarm == ALARM_WARNING)
-    {
-        OledShowString(0, 5, "Status: WARN", 1);
-    }
-    else
-    {
-        OledShowString(0, 5, "Status: DANGER", 1);
-    }
+    // Line 5: Light intensity in lux
+    snprintf(line, lineSize, "Light:%dlux", lightIntensity);
+    OledShowString(0, 5, line, 1);
 }
 
 static void RenderActuatorPage(char *line, size_t lineSize)

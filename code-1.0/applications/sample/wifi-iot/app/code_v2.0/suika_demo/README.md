@@ -28,6 +28,7 @@
 - 水位极低时报警(防止干烧)
 - 温度异常时报警
 - 水质TDS过高时报警
+- 浊度过高(>300NTU)时报警
 
 ### 5. Wi-Fi联网
 - Hi3861自动连接路由器
@@ -52,6 +53,7 @@
 | YW001水位传感器 | GPIO07/ADC3 | 水位检测 |
 | DS18B20温度传感器 | GPIO08 | 水温检测(1-Wire)，注意：不能使用GPIO02，会与UART0冲突 |
 | TDS水质传感器 | GPIO11/ADC5 | 水质TDS检测 |
+| AZDM01浊度传感器 | GPIO01/ADC1 | 浊度检测(模拟电压，NTU = -125 × V_out + 625) |
 | 光敏电阻(LDR) | GPIO12/ADC0 | 环境光检测(返回lux单位) |
 
 ### 执行器
@@ -78,7 +80,7 @@
 | GPIO | 功能 | 备注 |
 |------|------|------|
 | GPIO00 | 抽水泵继电器 | 高电平触发，低电平关闭 |
-| GPIO01 | 未分配 | 当前未使用 |
+| GPIO01 | AZDM01浊度传感器 | ADC1输入(模拟电压) |
 | GPIO02 | UART0_TX | 系统调试串口，不可使用 |
 | GPIO03 | LED补光灯 | 数字输出控制 |
 | GPIO04 | PWM风扇 | PWM1调速输出(0-100%) |
@@ -102,6 +104,7 @@ suika_demo/
 ├── water_level.c/h     # 水位传感器模块
 ├── ds18b20.c/h         # 温度传感器模块
 ├── tds_sensor.c/h      # TDS水质传感器模块
+├── turbidity_sensor.c/h # 浊度传感器模块(AZDM01)
 ├── light_sensor.c/h    # 光照传感器模块
 ├── pump_control.c/h    # 水泵控制模块
 ├── temp_control.c/h    # 温度控制模块(加热/散热)
@@ -126,6 +129,7 @@ suika_demo/
   "waterTemp": 24.5,
   "lightIntensity": 45,
   "tdsValue": 280,
+  "turbidity": 120,
   "pumpStatus": 0,
   "waterPumpStatus": 0,
   "heaterStatus": 0,
@@ -198,6 +202,7 @@ suika_demo/
 2. 继电器模块建议独立供电(5V)并与Hi3861共地
 3. 蜂鸣器使用PWM驱动，共振频率约2700Hz
 4. OLED与温湿度传感器共用I2C0，使用互斥锁保护
+5. AZDM01为0.5V~4.5V模拟输出，接入Hi3861 ADC前需使用分压电路，软件按 `NTU = -125 × V_out + 625` 计算并在NTU>300时报警
 
 ## 版本信息
 
