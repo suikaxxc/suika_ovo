@@ -4,7 +4,7 @@
  * Shows sensor data and actuator status on OLED screen
  * 
  * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump relay control
- * OLED page flip is now controlled via MQTT command from HarmonyOS app
+ * OLED supports both auto page flip and MQTT-triggered manual page flip
  */
 
 #include <stdio.h>
@@ -21,7 +21,6 @@
 #include "oled_ssd1306.h"
 #include "i2c_common.h"
 #include "water_level.h"
-#include "ds18b20.h"
 #include "tds_sensor.h"
 #include "turbidity_sensor.h"
 #include "light_sensor.h"
@@ -44,6 +43,9 @@
 // Display refresh interval
 #define REFRESH_INTERVAL_MS 200
 
+// Auto page flip interval
+#define AUTO_PAGE_INTERVAL_MS 10000
+
 // I2C initialization delay (wait for I2C_CommonInit to complete)
 #define I2C_INIT_DELAY_SEC 2
 
@@ -56,6 +58,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
+    int lightLux = Get_LightIntensity();
     int turbidityNTU = Get_TurbidityNTU();
     const TankParams *params = TankControl_GetParams();
 
@@ -75,24 +78,13 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "TDS:%dppm", tdsValue);
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Turbidity
-    snprintf(line, lineSize, "NTU:%d", turbidityNTU);
+    // Line 4: Light intensity
+    snprintf(line, lineSize, "Light:%dlux", lightLux);
     OledShowString(0, 4, line, 1);
 
-    // Line 5: Alarm status
-    AlarmLevel alarm = Alarm_GetLevel();
-    if (alarm == ALARM_NONE)
-    {
-        OledShowString(0, 5, "Status: OK", 1);
-    }
-    else if (alarm == ALARM_WARNING)
-    {
-        OledShowString(0, 5, "Status: WARN", 1);
-    }
-    else
-    {
-        OledShowString(0, 5, "Status: DANGER", 1);
-    }
+    // Line 5: Turbidity
+    snprintf(line, lineSize, "Turb:%dNTU", turbidityNTU);
+    OledShowString(0, 5, line, 1);
 }
 
 static void RenderActuatorPage(char *line, size_t lineSize)
@@ -139,10 +131,8 @@ static void RenderStatusPage(char *line, size_t lineSize)
              MQTT_IsConnected() ? "Connected" : "Disconn.  ");
     OledShowString(0, 3, line, 1);
 
-    // Line 4: DS18B20 sensor
-    snprintf(line, lineSize, "TempSensor: %s",
-             DS18B20_IsPresent() ? "OK" : "N/A");
-    OledShowString(0, 4, line, 1);
+    // Line 4: Reserved (cleared)
+    OledShowString(0, 4, "                ", 1);
 
     // Line 5: Alarm message (truncated)
     const char *alarmMsg = Alarm_GetMessage();
@@ -181,12 +171,12 @@ static void OledDisplay_Task(void *arg)
     g_oled_initialized = 1;
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
-    printf("[OLED] Display initialized (manual page flip via MQTT)\n");
+    printf("[OLED] Display initialized (auto + manual page flip)\n");
     sleep(1);
 
-    // Note: Auto page switching removed
-    // Page flip is now controlled via MQTT command from HarmonyOS app
+    // Auto page switching enabled; manual page flip via MQTT remains available
 
+    int elapsedAutoFlipMs = 0;
     while (1)
     {
         // Check if page change was requested via OledDisplay_NextPage()
@@ -212,6 +202,13 @@ static void OledDisplay_Task(void *arg)
             case PAGE_STATUS:
                 RenderStatusPage(line, sizeof(line));
                 break;
+        }
+
+        elapsedAutoFlipMs += REFRESH_INTERVAL_MS;
+        if (elapsedAutoFlipMs >= AUTO_PAGE_INTERVAL_MS)
+        {
+            elapsedAutoFlipMs = 0;
+            OledDisplay_NextPage();
         }
 
         usleep(REFRESH_INTERVAL_MS * 1000);  // Convert ms to us
