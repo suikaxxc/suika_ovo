@@ -9,7 +9,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <unistd.h>
 
 #include "ohos_init.h"
 #include "cmsis_os2.h"
@@ -83,8 +82,15 @@ static int ReadAveragedRaw(unsigned short *rawOut)
 
 static int CalculateNTUFromRaw(unsigned short raw)
 {
-    if (g_raw_clear_ref == 0 || g_raw_turbid_ref >= g_raw_clear_ref) {
+    if (g_raw_clear_ref == 0) {
         return (int)TURBIDITY_DEFAULT_CLEAR_NTU;
+    }
+    if (g_raw_turbid_ref >= g_raw_clear_ref) {
+        if (g_raw_clear_ref > TURBIDITY_STARTUP_TURBID_SPAN_RAW) {
+            g_raw_turbid_ref = (unsigned short)(g_raw_clear_ref - TURBIDITY_STARTUP_TURBID_SPAN_RAW);
+        } else {
+            g_raw_turbid_ref = 0;
+        }
     }
 
     // Adaptive calibration window update: clear water -> higher raw, dirty water -> lower raw.
@@ -162,7 +168,7 @@ void Turbidity_Init(void)
     GpioInit();
 
     // Wait sensor analog output to stabilize after power-on.
-    sleep(AZDM01_WARMUP_SECONDS);
+    osDelay((uint32_t)(AZDM01_WARMUP_SECONDS * 1000));
 
     g_turbidity_initialized = 1;
     g_update_count = 0;
