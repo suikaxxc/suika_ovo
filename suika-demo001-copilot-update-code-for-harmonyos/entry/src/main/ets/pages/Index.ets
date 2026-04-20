@@ -2,6 +2,7 @@ import { AIComponent } from '../view/AIComponent';
 import { StatusComponent } from '../view/StatusComponent';
 import { ControlComponent } from '../view/ControlComponent';
 import { SettingsComponent, SettingsChangeData } from '../view/SettingsComponent';
+import { DataDebugComponent } from '../view/DataDebugComponent';
 import AquaticTankViewModel from '../viewmodel/AquaticTankViewModel';
 import { MqttMessage } from '@ohos/mqtt';
 import MQTTUtil from '../common/utils/MQTTUtil';
@@ -21,6 +22,7 @@ interface MqttData {
   alarmStatus?: number;
   alarmMessage?: string;
   controlMode?: number;
+  manualDataMode?: number;
 }
 
 interface ControlData {
@@ -45,6 +47,7 @@ interface SettingsData {
 struct Index {
   @State item: AquaticTankViewModel = new AquaticTankViewModel();
   @State currentTab: number = 0;
+  @State manualDataMode: boolean = false;
   private mqttUtil: MQTTUtil = new MQTTUtil();
   // 用户最后一次切换模式的时间戳，用于防止MQTT数据覆盖用户刚刚的操作
   private lastModeChangeTime: number = 0;
@@ -80,6 +83,9 @@ struct Index {
             this.item.turbidity = receivedData.turbidity ?? this.item.turbidity;
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
+            if (receivedData.manualDataMode !== undefined) {
+              this.manualDataMode = receivedData.manualDataMode === 1;
+            }
 
             // 执行器状态：只在非防抖期间从硬件同步，防止用户手动控制被覆盖
             if (!isDebouncing) {
@@ -169,6 +175,18 @@ struct Index {
     this.mqttUtil.publish(JSON.stringify(settingsData));
   }
 
+  handleDataDebugModeChange(enabled: boolean): void {
+    this.manualDataMode = enabled;
+    this.handleControlChange('debugMode', enabled ? 1 : 0);
+  }
+
+  handleDataDebugValueApply(tdsValue: number, turbidity: number): void {
+    this.item.tdsValue = tdsValue;
+    this.item.turbidity = turbidity;
+    this.handleControlChange('debugTds', tdsValue);
+    this.handleControlChange('debugTurbidity', turbidity);
+  }
+
   build() {
     Column() {
       // 顶部标题栏
@@ -216,6 +234,17 @@ struct Index {
               AIComponent({ item: this.item })
             }
             .tabBar(this.TabBuilder(2, "AI建议", $r('app.media.ai')))
+
+            TabContent() {
+              DataDebugComponent({
+                item: $item,
+                manualDataMode: this.manualDataMode,
+                onModeChange: (enabled: boolean) => this.handleDataDebugModeChange(enabled),
+                onValueApply: (tdsValue: number, turbidity: number) =>
+                  this.handleDataDebugValueApply(tdsValue, turbidity)
+              })
+            }
+            .tabBar(this.TabBuilder(3, "数据调试", $r('app.media.settings')))
           }
           .width('100%')
           .height(480)

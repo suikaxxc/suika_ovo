@@ -39,6 +39,24 @@ int Get_TDSValue(void);
  */
 unsigned short Get_TDSRaw(void);
 
+/**
+ * @brief Enable/disable manual TDS override mode
+ * @param enabled 1-enable, 0-disable
+ */
+void TDS_SetManualMode(int enabled);
+
+/**
+ * @brief Get manual TDS override mode
+ * @return 1-enabled, 0-disabled
+ */
+int TDS_IsManualMode(void);
+
+/**
+ * @brief Set manual TDS value used when manual mode is enabled
+ * @param ppm TDS value in ppm (will be clamped to 0-1000)
+ */
+void TDS_SetManualValue(int ppm);
+
 #ifdef __cplusplus
 }
 #endif

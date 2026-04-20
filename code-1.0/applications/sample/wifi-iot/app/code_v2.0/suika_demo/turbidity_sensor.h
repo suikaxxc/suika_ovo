@@ -50,6 +50,24 @@ float Get_TurbidityVoltage(void);
  */
 unsigned short Get_TurbidityRaw(void);
 
+/**
+ * @brief Enable/disable manual turbidity override mode
+ * @param enabled 1-enable, 0-disable
+ */
+void Turbidity_SetManualMode(int enabled);
+
+/**
+ * @brief Get manual turbidity override mode
+ * @return 1-enabled, 0-disabled
+ */
+int Turbidity_IsManualMode(void);
+
+/**
+ * @brief Set manual turbidity value used when manual mode is enabled
+ * @param ntu Turbidity value in NTU (will be clamped to 0-1000)
+ */
+void Turbidity_SetManualValue(int ntu);
+
 #ifdef __cplusplus
 }
 #endif

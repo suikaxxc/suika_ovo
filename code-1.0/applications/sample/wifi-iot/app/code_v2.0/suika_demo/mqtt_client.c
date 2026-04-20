@@ -79,6 +79,7 @@ static void PublishSensorData(int socket)
     AlarmLevel alarmLevel = Alarm_GetLevel();
     const char *alarmMsg = Alarm_GetMessage();
     int controlMode = (TankControl_GetMode() == CONTROL_MODE_MANUAL) ? 1 : 0;
+    int manualDataMode = (TDS_IsManualMode() || Turbidity_IsManualMode()) ? 1 : 0;
 
     // Build JSON payload matching HarmonyOS app MqttData interface
     // Note: waterLevel is now in mm (0-90) instead of percentage
@@ -96,11 +97,12 @@ static void PublishSensorData(int socket)
              "\"ledStatus\":%d,"
              "\"alarmStatus\":%d,"
              "\"alarmMessage\":\"%s\","
-             "\"controlMode\":%d"
+             "\"controlMode\":%d,"
+             "\"manualDataMode\":%d"
              "}",
              waterLevel, waterTemp, lightIntensity, tdsValue, turbidity,
              pumpStatus, waterPumpStatus, heaterStatus, fanSpeed, ledStatus,
-             (int)alarmLevel, alarmMsg, controlMode);
+             (int)alarmLevel, alarmMsg, controlMode, manualDataMode);
 
     int payloadlen = strlen(payload);
     int len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString,
@@ -123,7 +125,7 @@ static void HandleControlCommand(const char *payload, int payloadLen)
 
     // Parse JSON command
     // Expected format from HarmonyOS app ControlData:
-    // {"type":"led|pump|heater|fan|mode|settings","value":0|1|...}
+    // {"type":"led|pump|heater|fan|mode|settings|debugMode|debugTds|debugTurbidity","value":0|1|...}
 
     // Simple JSON parsing (avoiding complex library)
     char *typeStart = strstr(cmdBuf, "\"type\":\"");
@@ -221,6 +223,21 @@ static void HandleControlCommand(const char *payload, int payloadLen)
             printf("[MQTT] Settings updated: TempMin=%.1f, TempMax=%.1f, WaterMin=%d, WaterMax=%d\n",
                    params.waterTempMin, params.waterTempMax, 
                    params.waterLevelMin, params.waterLevelMax);
+        }
+        else if (strcmp(cmdType, "debugMode") == 0)
+        {
+            int enabled = (value != 0) ? 1 : 0;
+            TDS_SetManualMode(enabled);
+            Turbidity_SetManualMode(enabled);
+            printf("[MQTT] Data debug mode: %s\n", enabled ? "ON" : "OFF");
+        }
+        else if (strcmp(cmdType, "debugTds") == 0)
+        {
+            TDS_SetManualValue(value);
+        }
+        else if (strcmp(cmdType, "debugTurbidity") == 0)
+        {
+            Turbidity_SetManualValue(value);
         }
     }
 }

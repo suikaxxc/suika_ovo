@@ -55,15 +55,39 @@ static int g_samples_collected = 0;
 
 static unsigned short g_tds_raw = 0;
 static int g_tds_ppm = 0;
+static int g_tds_manual_mode = 0;
+static int g_tds_manual_ppm = 280;
 
 int Get_TDSValue(void)
 {
+    if (g_tds_manual_mode) {
+        return g_tds_manual_ppm;
+    }
     return g_tds_ppm;
 }
 
 unsigned short Get_TDSRaw(void)
 {
     return g_tds_raw;
+}
+
+void TDS_SetManualMode(int enabled)
+{
+    g_tds_manual_mode = (enabled != 0) ? 1 : 0;
+    printf("[TDS] Manual mode: %s\n", g_tds_manual_mode ? "ON" : "OFF");
+}
+
+int TDS_IsManualMode(void)
+{
+    return g_tds_manual_mode;
+}
+
+void TDS_SetManualValue(int ppm)
+{
+    if (ppm < 0) ppm = 0;
+    if (ppm > 1000) ppm = 1000;
+    g_tds_manual_ppm = ppm;
+    printf("[TDS] Manual ppm set to %d\n", g_tds_manual_ppm);
 }
 
 /**
@@ -167,6 +191,10 @@ void TDS_CollectSample(void)
 
 void TDS_Update(void)
 {
+    if (g_tds_manual_mode) {
+        return;
+    }
+
     // Collect a new sample
     TDS_CollectSample();
     

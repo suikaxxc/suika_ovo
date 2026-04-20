@@ -136,7 +136,8 @@ suika_demo/
   "fanSpeed": 0,
   "ledStatus": 1,
   "alarmStatus": 0,
-  "alarmMessage": ""
+  "alarmMessage": "",
+  "manualDataMode": 0
 }
 ```
 
@@ -151,6 +152,9 @@ suika_demo/
 {"type": "mode", "value": 0, "timestamp": 1234567890}
 {"type": "plant", "value": 0, "timestamp": 1234567890}
 {"type": "settings", "waterTempMin": 20, "waterTempMax": 28, ...}
+{"type": "debugMode", "value": 1, "timestamp": 1234567890}
+{"type": "debugTds", "value": 420, "timestamp": 1234567890}
+{"type": "debugTurbidity", "value": 350, "timestamp": 1234567890}
 ```
 
 ## 预设植物参数

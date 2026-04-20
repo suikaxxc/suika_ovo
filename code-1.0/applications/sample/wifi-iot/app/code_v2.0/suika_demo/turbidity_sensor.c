@@ -52,6 +52,8 @@ static float g_turbidity_vout = AZDM01_MAX_VOUT;
 static int g_turbidity_ntu = 0;
 static int g_turbidity_initialized = 0;
 static uint32_t g_update_count = 0;
+static int g_turbidity_manual_mode = 0;
+static int g_turbidity_manual_ntu = 120;
 
 static int ReadRawMq2Style(unsigned short *rawOut)
 {
@@ -88,6 +90,9 @@ static int ReadAveragedRaw(unsigned short *rawOut)
 
 int Get_TurbidityNTU(void)
 {
+    if (g_turbidity_manual_mode) {
+        return g_turbidity_manual_ntu;
+    }
     return g_turbidity_ntu;
 }
 
@@ -101,9 +106,31 @@ unsigned short Get_TurbidityRaw(void)
     return g_turbidity_raw;
 }
 
+void Turbidity_SetManualMode(int enabled)
+{
+    g_turbidity_manual_mode = (enabled != 0) ? 1 : 0;
+    printf("[Turbidity] Manual mode: %s\n", g_turbidity_manual_mode ? "ON" : "OFF");
+}
+
+int Turbidity_IsManualMode(void)
+{
+    return g_turbidity_manual_mode;
+}
+
+void Turbidity_SetManualValue(int ntu)
+{
+    if (ntu < TURBIDITY_NTU_MIN) ntu = TURBIDITY_NTU_MIN;
+    if (ntu > TURBIDITY_NTU_MAX) ntu = TURBIDITY_NTU_MAX;
+    g_turbidity_manual_ntu = ntu;
+    printf("[Turbidity] Manual NTU set to %d\n", g_turbidity_manual_ntu);
+}
+
 void Turbidity_Update(void)
 {
     if (!g_turbidity_initialized) {
+        return;
+    }
+    if (g_turbidity_manual_mode) {
         return;
     }
 
