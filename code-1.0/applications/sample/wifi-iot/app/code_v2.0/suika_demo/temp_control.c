@@ -71,10 +71,8 @@ int Heater_GetState(void)
 
 void Fan_SetSpeed(int speedPercent)
 {
-    if (speedPercent < 0) speedPercent = 0;
-    if (speedPercent > 100) speedPercent = 100;
-
-    if (speedPercent == 0)
+    // Compatibility mode: any non-zero value means ON.
+    if (speedPercent <= 0)
     {
         // OFF: HIGH level for active-low hardware
         GpioSetOutputVal(FAN_GPIO, WIFI_IOT_GPIO_VALUE1);
