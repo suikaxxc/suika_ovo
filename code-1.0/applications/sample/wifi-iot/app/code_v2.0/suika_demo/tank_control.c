@@ -266,7 +266,7 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue,
     // Turbidity check (AZDM01): trigger warning when NTU > 300
     if (turbidityValue > TURBIDITY_CRITICAL_HIGH)
     {
-        snprintf(alarmMsg, sizeof(alarmMsg), "Turbidity high: %dNTU", turbidityValue);
+        snprintf(alarmMsg, sizeof(alarmMsg), "Turbidity high: %d NTU", turbidityValue);
         Alarm_Trigger(ALARM_WARNING, alarmMsg);
         return;
     }

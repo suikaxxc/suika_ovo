@@ -14,7 +14,8 @@ extern "C" {
 #endif
 
 /**
- * @brief Initialize turbidity sensor (no-op, for compatibility)
+ * @brief Legacy placeholder kept for API consistency with other sensor modules.
+ *        No background task is created; periodic acquisition is done via Turbidity_Update().
  */
 void Turbidity_MainLoop(void);
 
