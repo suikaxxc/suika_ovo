@@ -57,6 +57,7 @@
 #define TURBIDITY_SAT_HIGH_RAW 4080
 #define TURBIDITY_SAT_LOW_RAW 15
 #define TURBIDITY_SAT_WARN_COUNT 20U
+#define TURBIDITY_USHORT_MAX 65535U
 
 static unsigned short g_turbidity_raw = 0;
 static float g_turbidity_vout = AZDM01_MAX_VOUT;
@@ -112,7 +113,7 @@ static int CalculateNTUFromRaw(unsigned short raw)
         // to avoid unbounded span inflation under long-term clear-water sampling.
         if (g_raw_turbid_ref < g_raw_clear_ref) {
             unsigned short delta = (unsigned short)(g_raw_clear_ref - prevClearRef);
-            if (delta <= (unsigned short)(0xFFFFU - g_raw_turbid_ref)) {
+            if ((unsigned int)delta <= (TURBIDITY_USHORT_MAX - (unsigned int)g_raw_turbid_ref)) {
                 unsigned short shifted = (unsigned short)(g_raw_turbid_ref + delta);
                 if (shifted < g_raw_clear_ref) {
                     g_raw_turbid_ref = shifted;
