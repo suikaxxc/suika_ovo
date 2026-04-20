@@ -56,7 +56,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
-    int turbidity = Get_TurbidityNTU();
+    int turbidityNTU = Get_TurbidityNTU();
     const TankParams *params = TankControl_GetParams();
 
     // Line 1: Water Level in mm (YW01 sensor: 0-90mm)
@@ -76,7 +76,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     OledShowString(0, 3, line, 1);
 
     // Line 4: Turbidity
-    snprintf(line, lineSize, "NTU:%d", turbidity);
+    snprintf(line, lineSize, "NTU:%d", turbidityNTU);
     OledShowString(0, 4, line, 1);
 
     // Line 5: Alarm status
