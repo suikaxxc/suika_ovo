@@ -29,6 +29,8 @@
 // AZDM01 sensor parameters
 #define AZDM01_MIN_VOUT 0.5f
 #define AZDM01_MAX_VOUT 4.5f
+#define AZDM01_MIN_NTU 62.5f
+#define AZDM01_MAX_NTU 562.5f
 
 // Voltage divider reconstruction ratio for mapping ADC pin voltage back to sensor Vout.
 // ratio = Vout / Vadc = (R1 + R2) / R2 (R1: upper resistor, R2: lower resistor to GND)
@@ -38,7 +40,8 @@
 // and R2=10kΩ (lower resistor from ADC node to GND): (15k+10k)/10k = 2.5.
 #define TURBIDITY_DIVIDER_RATIO 2.5f
 
-// Simple averaging for stable ADC reading
+// Simple averaging for stable ADC reading:
+// 8 samples provides basic noise suppression while keeping control-loop response fast.
 #define TURBIDITY_SAMPLE_COUNT 8
 
 static unsigned short g_turbidity_raw = 0;
@@ -51,8 +54,8 @@ static int CalculateNTU(float vout)
     float ntu = -125.0f * vout + 625.0f;
 
     // For AZDM01 Vout range 0.5V~4.5V, theoretical NTU range is 62.5~562.5.
-    if (ntu < 0.0f) ntu = 0.0f;
-    if (ntu > 562.5f) ntu = 562.5f;
+    if (ntu < AZDM01_MIN_NTU) ntu = AZDM01_MIN_NTU;
+    if (ntu > AZDM01_MAX_NTU) ntu = AZDM01_MAX_NTU;
 
     return (int)(ntu + 0.5f);
 }
