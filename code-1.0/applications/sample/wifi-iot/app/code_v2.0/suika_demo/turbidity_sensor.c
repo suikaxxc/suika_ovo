@@ -46,8 +46,11 @@
 // This choice aligns with periodic control-loop sampling cadence in suika_demo.
 #define TURBIDITY_SAMPLE_COUNT 8
 #define TURBIDITY_LOG_UPDATE_COUNT 30U
+// Default fallback mapping anchors; should be tuned per deployment water conditions.
 #define TURBIDITY_DEFAULT_CLEAR_NTU 25.0f
 #define TURBIDITY_DEFAULT_DIRTY_NTU 1000.0f
+// Startup raw span between clear reference and initial turbid reference.
+// 600 is used as a practical initial dynamic range to avoid near-zero span on boot.
 #define TURBIDITY_STARTUP_TURBID_SPAN_RAW 600
 #define TURBIDITY_MIN_EFFECTIVE_SPAN_RAW 120
 

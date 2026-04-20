@@ -53,7 +53,7 @@
 | YW001水位传感器 | GPIO07/ADC3 | 水位检测 |
 | DS18B20温度传感器 | GPIO08 | 水温检测(1-Wire)，注意：不能使用GPIO02，会与UART0冲突 |
 | TDS水质传感器 | GPIO11/ADC5 | 水质TDS检测 |
-| AZDM01浊度传感器 | GPIO01/ADC1 | 浊度检测(模拟电压，MQ2式原始ADC采样+自适应映射NTU) |
+| AZDM01浊度传感器 | GPIO01/ADC1 | 浊度检测(模拟电压) |
 | 光敏电阻(LDR) | GPIO12/ADC0 | 环境光检测(返回lux单位) |
 
 ### 执行器
