@@ -34,7 +34,8 @@
 // ratio = Vout / Vadc = (R1 + R2) / R2 (R1: upper resistor, R2: lower resistor to GND)
 // This value MUST match the actual resistor divider on hardware.
 // Current configuration assumes 4.5V -> 1.8V at ADC pin, so ratio = 4.5 / 1.8 = 2.5.
-// One matching example is R1=15kΩ and R2=10kΩ -> (15k+10k)/10k = 2.5.
+// One matching example is R1=15kΩ (upper resistor from sensor Vout to ADC node)
+// and R2=10kΩ (lower resistor from ADC node to GND): (15k+10k)/10k = 2.5.
 #define TURBIDITY_DIVIDER_RATIO 2.5f
 
 // Simple averaging for stable ADC reading
@@ -49,8 +50,9 @@ static int CalculateNTU(float vout)
     // Formula from requirement: NTU = -125 * Vout + 625
     float ntu = -125.0f * vout + 625.0f;
 
+    // For AZDM01 Vout range 0.5V~4.5V, theoretical NTU range is 62.5~562.5.
     if (ntu < 0.0f) ntu = 0.0f;
-    if (ntu > 1000.0f) ntu = 1000.0f;
+    if (ntu > 562.5f) ntu = 562.5f;
 
     return (int)(ntu + 0.5f);
 }
