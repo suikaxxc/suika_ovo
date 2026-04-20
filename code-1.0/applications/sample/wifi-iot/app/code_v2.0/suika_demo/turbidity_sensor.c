@@ -4,7 +4,7 @@
  * Uses ADC1 (GPIO01) for turbidity measurement
  *
  * Sensor output: analog voltage (typically 0.5V ~ 4.5V)
- * Formula: NTU = -125 * Vout + 625
+ * Read ADC raw first (MQ2-style acquisition), then map raw to NTU via adaptive calibration.
  */
 
 #include <stdio.h>
@@ -29,8 +29,6 @@
 // AZDM01 sensor parameters
 #define AZDM01_MIN_VOUT 0.5f
 #define AZDM01_MAX_VOUT 4.5f
-#define AZDM01_MIN_NTU 62.5f
-#define AZDM01_MAX_NTU 562.5f
 // AZDM01 power supply configuration (hardware uses 5V)
 #define AZDM01_SUPPLY_VOLTAGE_V 5.0f
 // Sensor warm-up time after power-on (seconds)
@@ -47,22 +45,67 @@
 // Simple averaging for stable ADC reading:
 // 8 samples provides basic noise suppression while keeping control-loop response fast.
 #define TURBIDITY_SAMPLE_COUNT 8
+#define TURBIDITY_DEFAULT_CLEAR_NTU 25.0f
+#define TURBIDITY_DEFAULT_DIRTY_NTU 1000.0f
+#define TURBIDITY_STARTUP_TURBID_SPAN_RAW 600
+#define TURBIDITY_MIN_EFFECTIVE_SPAN_RAW 120
 
 static unsigned short g_turbidity_raw = 0;
 static float g_turbidity_vout = AZDM01_MAX_VOUT;
 static int g_turbidity_ntu = 0;
 static int g_turbidity_initialized = 0;
 static uint32_t g_update_count = 0;
+static unsigned short g_raw_clear_ref = 0;
+static unsigned short g_raw_turbid_ref = 0;
 
-static int CalculateNTU(float vout)
+static int ReadAveragedRaw(unsigned short *rawOut)
 {
-    // Formula from requirement: NTU = -125 * Vout + 625
-    float ntu = -125.0f * vout + 625.0f;
+    unsigned int sum = 0;
+    int validSamples = 0;
+    int i;
 
-    // For AZDM01 Vout range 0.5V~4.5V, theoretical NTU range is 62.5~562.5.
-    if (ntu < AZDM01_MIN_NTU) ntu = AZDM01_MIN_NTU;
-    if (ntu > AZDM01_MAX_NTU) ntu = AZDM01_MAX_NTU;
+    for (i = 0; i < TURBIDITY_SAMPLE_COUNT; i++) {
+        unsigned short raw = 0;
+        if (AdcRead(TURBIDITY_ADC_CHANNEL, &raw,
+                    WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS) {
+            sum += raw;
+            validSamples++;
+        }
+    }
 
+    if (validSamples == 0) {
+        return 0;
+    }
+
+    *rawOut = (unsigned short)(sum / (unsigned int)validSamples);
+    return 1;
+}
+
+static int CalculateNTUFromRaw(unsigned short raw)
+{
+    if (g_raw_clear_ref == 0 || g_raw_turbid_ref >= g_raw_clear_ref) {
+        return (int)TURBIDITY_DEFAULT_CLEAR_NTU;
+    }
+
+    // Adaptive calibration window update: clear water -> higher raw, dirty water -> lower raw.
+    if (raw > g_raw_clear_ref) {
+        g_raw_clear_ref = raw;
+    }
+    if (raw < g_raw_turbid_ref) {
+        g_raw_turbid_ref = raw;
+    }
+
+    int span = (int)g_raw_clear_ref - (int)g_raw_turbid_ref;
+    if (span < TURBIDITY_MIN_EFFECTIVE_SPAN_RAW) {
+        span = TURBIDITY_MIN_EFFECTIVE_SPAN_RAW;
+    }
+
+    float ratio = ((float)g_raw_clear_ref - (float)raw) / (float)span;
+    if (ratio < 0.0f) ratio = 0.0f;
+    if (ratio > 1.0f) ratio = 1.0f;
+
+    float ntu = TURBIDITY_DEFAULT_CLEAR_NTU +
+                ratio * (TURBIDITY_DEFAULT_DIRTY_NTU - TURBIDITY_DEFAULT_CLEAR_NTU);
     return (int)(ntu + 0.5f);
 }
 
@@ -87,24 +130,12 @@ void Turbidity_Update(void)
         return;
     }
 
-    unsigned int sum = 0;
-    int validSamples = 0;
-    int i;
-
-    for (i = 0; i < TURBIDITY_SAMPLE_COUNT; i++) {
-        unsigned short raw = 0;
-        if (AdcRead(TURBIDITY_ADC_CHANNEL, &raw,
-                    WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS) {
-            sum += raw;
-            validSamples++;
-        }
-    }
-
-    if (validSamples == 0) {
+    unsigned short raw = 0;
+    if (!ReadAveragedRaw(&raw)) {
         return;
     }
 
-    g_turbidity_raw = (unsigned short)(sum / (unsigned int)validSamples);
+    g_turbidity_raw = raw;
 
     // Convert ADC reading to ADC pin voltage, then reconstruct sensor output voltage
     float adcVoltage = ((float)g_turbidity_raw / ADC_MAX_VALUE) * ADC_VREF_V;
@@ -115,7 +146,7 @@ void Turbidity_Update(void)
     if (vout > AZDM01_MAX_VOUT) vout = AZDM01_MAX_VOUT;
 
     g_turbidity_vout = vout;
-    g_turbidity_ntu = CalculateNTU(vout);
+    g_turbidity_ntu = CalculateNTUFromRaw(g_turbidity_raw);
 
     g_update_count++;
     if ((g_update_count % 30U) == 0U) {
@@ -135,9 +166,19 @@ void Turbidity_Init(void)
 
     g_turbidity_initialized = 1;
     g_update_count = 0;
+    g_raw_clear_ref = 0;
+    g_raw_turbid_ref = 0;
 
-    // Prime one reading to avoid long initial zero value.
-    Turbidity_Update();
+    // Prime one reading and initialize adaptive references.
+    if (ReadAveragedRaw(&g_turbidity_raw)) {
+        g_raw_clear_ref = g_turbidity_raw;
+        if (g_turbidity_raw > TURBIDITY_STARTUP_TURBID_SPAN_RAW) {
+            g_raw_turbid_ref = (unsigned short)(g_turbidity_raw - TURBIDITY_STARTUP_TURBID_SPAN_RAW);
+        } else {
+            g_raw_turbid_ref = 0;
+        }
+        Turbidity_Update();
+    }
 
     printf("[Turbidity] Initialized on GPIO01/ADC1 (sensor VCC=%.1fV, warmup=%ds)\n",
            AZDM01_SUPPLY_VOLTAGE_V, AZDM01_WARMUP_SECONDS);

@@ -3,7 +3,7 @@
  * @brief AZDM01 turbidity sensor interface for aquatic plant tank
  *
  * Sensor output: analog voltage (typically 0.5V ~ 4.5V)
- * NTU formula: NTU = -125 * Vout + 625
+ * Acquisition: MQ2-like raw ADC sampling + adaptive raw-to-NTU mapping
  */
 
 #ifndef __TURBIDITY_SENSOR_H__
