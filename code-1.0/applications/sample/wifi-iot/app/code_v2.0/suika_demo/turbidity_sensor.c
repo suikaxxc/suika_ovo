@@ -43,7 +43,9 @@
 
 // Simple averaging for stable ADC reading:
 // 8 samples provides basic noise suppression while keeping control-loop response fast.
+// This choice aligns with periodic control-loop sampling cadence in suika_demo.
 #define TURBIDITY_SAMPLE_COUNT 8
+#define TURBIDITY_LOG_INTERVAL 30U
 #define TURBIDITY_DEFAULT_CLEAR_NTU 25.0f
 #define TURBIDITY_DEFAULT_DIRTY_NTU 1000.0f
 #define TURBIDITY_STARTUP_TURBID_SPAN_RAW 600
@@ -155,7 +157,7 @@ void Turbidity_Update(void)
     g_turbidity_ntu = CalculateNTUFromRaw(g_turbidity_raw);
 
     g_update_count++;
-    if ((g_update_count % 30U) == 0U) {
+    if ((g_update_count % TURBIDITY_LOG_INTERVAL) == 0U) {
         printf("[Turbidity] raw=%u adc=%.3fV vout=%.3fV ntu=%d (VCC=%.1fV)\n",
                g_turbidity_raw, adcVoltage, g_turbidity_vout, g_turbidity_ntu,
                AZDM01_SUPPLY_VOLTAGE_V);
@@ -168,7 +170,7 @@ void Turbidity_Init(void)
     GpioInit();
 
     // Wait sensor analog output to stabilize after power-on.
-    osDelay((uint32_t)(AZDM01_WARMUP_SECONDS * 1000));
+    osDelay(((uint32_t)AZDM01_WARMUP_SECONDS) * 1000U);
 
     g_turbidity_initialized = 1;
     g_update_count = 0;
