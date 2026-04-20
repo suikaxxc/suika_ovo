@@ -177,7 +177,13 @@ static void OledDisplay_Task(void *arg)
 
     // Auto page switching enabled; manual page flip via MQTT remains available
 
-    uint32_t autoFlipIntervalTicks = AUTO_PAGE_INTERVAL_SEC * osKernelGetTickFreq();
+    uint32_t tickFreq = osKernelGetTickFreq();
+    if (tickFreq == 0) {
+        tickFreq = 1;
+    }
+    uint64_t autoFlipIntervalTicks64 = (uint64_t)AUTO_PAGE_INTERVAL_SEC * (uint64_t)tickFreq;
+    uint32_t autoFlipIntervalTicks =
+        (autoFlipIntervalTicks64 > UINT32_MAX) ? UINT32_MAX : (uint32_t)autoFlipIntervalTicks64;
     if (autoFlipIntervalTicks == 0) {
         autoFlipIntervalTicks = 1;
     }
@@ -212,6 +218,7 @@ static void OledDisplay_Task(void *arg)
         }
 
         uint32_t currentTick = osKernelGetTickCount();
+        // Unsigned subtraction is wrap-safe for tick counter overflow.
         if ((currentTick - lastAutoFlipTick) >= autoFlipIntervalTicks)
         {
             lastAutoFlipTick = currentTick;
