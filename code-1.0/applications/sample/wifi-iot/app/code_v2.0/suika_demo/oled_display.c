@@ -58,7 +58,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
-    int lightLux = Get_LightIntensity();
+    int lightIntensity = Get_LightIntensity();
     int turbidityNTU = Get_TurbidityNTU();
     const TankParams *params = TankControl_GetParams();
 
@@ -79,7 +79,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     OledShowString(0, 3, line, 1);
 
     // Line 4: Light intensity
-    snprintf(line, lineSize, "Light:%dlux", lightLux);
+    snprintf(line, lineSize, "Light:%dlux", lightIntensity);
     OledShowString(0, 4, line, 1);
 
     // Line 5: Turbidity
