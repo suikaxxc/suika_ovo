@@ -15,7 +15,9 @@ extern "C" {
 
 /**
  * @brief No-op placeholder kept for API consistency with other sensor modules.
- *        No background task is created; periodic acquisition is done via Turbidity_Update().
+ *        Similar to WaterLevel_MainLoop/TDS_MainLoop/LightSensor_MainLoop, this module
+ *        does not spawn a dedicated task and is sampled by TankControl_Task.
+ *        Periodic acquisition is done via Turbidity_Update().
  */
 void Turbidity_MainLoop(void);
 
