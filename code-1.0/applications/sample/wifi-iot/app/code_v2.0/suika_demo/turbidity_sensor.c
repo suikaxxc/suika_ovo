@@ -112,9 +112,11 @@ static int CalculateNTUFromRaw(unsigned short raw)
         // to avoid unbounded span inflation under long-term clear-water sampling.
         if (g_raw_turbid_ref < g_raw_clear_ref) {
             unsigned short delta = (unsigned short)(g_raw_clear_ref - prevClearRef);
-            unsigned short shifted = (unsigned short)(g_raw_turbid_ref + delta);
-            if (shifted < g_raw_clear_ref) {
-                g_raw_turbid_ref = shifted;
+            if (delta <= (unsigned short)(0xFFFFU - g_raw_turbid_ref)) {
+                unsigned short shifted = (unsigned short)(g_raw_turbid_ref + delta);
+                if (shifted < g_raw_clear_ref) {
+                    g_raw_turbid_ref = shifted;
+                }
             }
         }
     }

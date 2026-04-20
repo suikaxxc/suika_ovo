@@ -226,7 +226,7 @@ suika_demo/
    `[Turbidity][Warn] ADC saturation detected ...`  
    一旦出现该日志，请优先调整分压比、检查AO/GND接线和传感器供电稳定性。
 
-可通过串口日志排查：代码会周期输出 `[Turbidity] raw/adc/vout/ntu`，若 raw 基本不变，优先检查硬件接线、供电与分压网络。
+可通过串口日志排查：代码会周期输出 `[Turbidity] raw/adc/vout/ntu`，若 raw 基本不变， 优先检查硬件接线、供电与分压网络。
 
 ## 版本信息
 
