@@ -45,7 +45,7 @@
 #define REFRESH_INTERVAL_MS 200
 
 // Auto page flip interval
-#define AUTO_PAGE_INTERVAL_MS 10000
+#define AUTO_PAGE_INTERVAL_SEC 10
 
 // I2C initialization delay (wait for I2C_CommonInit to complete)
 #define I2C_INIT_DELAY_SEC 2
@@ -177,14 +177,19 @@ static void OledDisplay_Task(void *arg)
 
     // Auto page switching enabled; manual page flip via MQTT remains available
 
-    int timeSinceLastAutoFlipMs = 0;
+    uint32_t autoFlipIntervalTicks = AUTO_PAGE_INTERVAL_SEC * osKernelGetTickFreq();
+    if (autoFlipIntervalTicks == 0) {
+        autoFlipIntervalTicks = 1;
+    }
+    uint32_t lastAutoFlipTick = osKernelGetTickCount();
+
     while (1)
     {
         // Check if page change was requested via OledDisplay_NextPage()
         if (g_page_changed)
         {
             g_page_changed = 0;
-            timeSinceLastAutoFlipMs = 0;
+            lastAutoFlipTick = osKernelGetTickCount();
             OledFillScreen(0x00);
 
             const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
@@ -206,10 +211,10 @@ static void OledDisplay_Task(void *arg)
                 break;
         }
 
-        timeSinceLastAutoFlipMs += REFRESH_INTERVAL_MS;
-        if (timeSinceLastAutoFlipMs >= AUTO_PAGE_INTERVAL_MS)
+        uint32_t currentTick = osKernelGetTickCount();
+        if ((currentTick - lastAutoFlipTick) >= autoFlipIntervalTicks)
         {
-            timeSinceLastAutoFlipMs = 0;
+            lastAutoFlipTick = currentTick;
             OledDisplay_NextPage();
         }
 
