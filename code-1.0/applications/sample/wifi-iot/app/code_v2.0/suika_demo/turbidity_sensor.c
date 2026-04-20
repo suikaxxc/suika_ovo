@@ -31,6 +31,10 @@
 #define AZDM01_MAX_VOUT 4.5f
 #define AZDM01_MIN_NTU 62.5f
 #define AZDM01_MAX_NTU 562.5f
+// AZDM01 power supply configuration (hardware uses 5V)
+#define AZDM01_SUPPLY_VOLTAGE_V 5.0f
+// Sensor warm-up time after power-on (seconds)
+#define AZDM01_WARMUP_SECONDS 2
 
 // Voltage divider reconstruction ratio for mapping ADC pin voltage back to sensor Vout.
 // ratio = Vout / Vadc = (R1 + R2) / R2 (R1: upper resistor, R2: lower resistor to GND)
@@ -47,6 +51,8 @@
 static unsigned short g_turbidity_raw = 0;
 static float g_turbidity_vout = AZDM01_MAX_VOUT;
 static int g_turbidity_ntu = 0;
+static int g_turbidity_initialized = 0;
+static uint32_t g_update_count = 0;
 
 static int CalculateNTU(float vout)
 {
@@ -77,6 +83,10 @@ unsigned short Get_TurbidityRaw(void)
 
 void Turbidity_Update(void)
 {
+    if (!g_turbidity_initialized) {
+        return;
+    }
+
     unsigned int sum = 0;
     int validSamples = 0;
     int i;
@@ -99,13 +109,42 @@ void Turbidity_Update(void)
     // Convert ADC reading to ADC pin voltage, then reconstruct sensor output voltage
     float adcVoltage = ((float)g_turbidity_raw / ADC_MAX_VALUE) * ADC_VREF_V;
     float vout = adcVoltage * TURBIDITY_DIVIDER_RATIO;
+    // Formula voltage is based on 5V-powered sensor output.
+    float voutForFormula = vout * (5.0f / AZDM01_SUPPLY_VOLTAGE_V);
 
     // Clamp to specified sensor range
     if (vout < AZDM01_MIN_VOUT) vout = AZDM01_MIN_VOUT;
     if (vout > AZDM01_MAX_VOUT) vout = AZDM01_MAX_VOUT;
+    if (voutForFormula < AZDM01_MIN_VOUT) voutForFormula = AZDM01_MIN_VOUT;
+    if (voutForFormula > AZDM01_MAX_VOUT) voutForFormula = AZDM01_MAX_VOUT;
 
     g_turbidity_vout = vout;
-    g_turbidity_ntu = CalculateNTU(vout);
+    g_turbidity_ntu = CalculateNTU(voutForFormula);
+
+    g_update_count++;
+    if ((g_update_count % 30U) == 0U) {
+        printf("[Turbidity] raw=%u adc=%.3fV vout=%.3fV ntu=%d (VCC=%.1fV)\n",
+               g_turbidity_raw, adcVoltage, g_turbidity_vout, g_turbidity_ntu,
+               AZDM01_SUPPLY_VOLTAGE_V);
+    }
+}
+
+void Turbidity_Init(void)
+{
+    // Ensure GPIO/ADC subsystem is initialized
+    GpioInit();
+
+    // Wait sensor analog output to stabilize after power-on.
+    sleep(AZDM01_WARMUP_SECONDS);
+
+    g_turbidity_initialized = 1;
+    g_update_count = 0;
+
+    // Prime one reading to avoid long initial zero value.
+    Turbidity_Update();
+
+    printf("[Turbidity] Initialized on GPIO01/ADC1 (sensor VCC=%.1fV, warmup=%ds)\n",
+           AZDM01_SUPPLY_VOLTAGE_V, AZDM01_WARMUP_SECONDS);
 }
 
 void Turbidity_MainLoop(void)

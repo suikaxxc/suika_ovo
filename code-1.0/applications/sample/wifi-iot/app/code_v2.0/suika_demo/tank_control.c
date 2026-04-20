@@ -78,6 +78,7 @@ void TankControl_Init(void)
     TempControl_Init();
     LED_Init();
     Alarm_Init();
+    Turbidity_Init();
 
     printf("[TankControl] Initialized\n");
 }

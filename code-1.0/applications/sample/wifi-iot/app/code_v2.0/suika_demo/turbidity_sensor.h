@@ -14,6 +14,12 @@ extern "C" {
 #endif
 
 /**
+ * @brief Initialize AZDM01 turbidity sensor.
+ *        Includes sensor warm-up stage to avoid unstable startup readings.
+ */
+void Turbidity_Init(void);
+
+/**
  * @brief No-op placeholder kept for API consistency with other sensor modules.
  *        Similar to WaterLevel_MainLoop/TDS_MainLoop/LightSensor_MainLoop, this module
  *        does not spawn a dedicated task and is sampled by TankControl_Task.
