@@ -15,7 +15,7 @@
 ### 2. 智能水体温控功能
 - 使用DS18B20测量水温
 - 水温过低时启动加热片加热
-- 水温过高时启动PWM风扇散热
+- 水温过高时启动风扇散热（低电平启动/高电平停止）
 - 将水温维持在最适区间
 
 ### 3. 智能LED补光功能
@@ -63,7 +63,7 @@
 | 抽水泵继电器(高电平触发) | GPIO00 | 抽水泵开关控制 |
 | 补水泵继电器(高电平触发) | GPIO05 | 补水泵开关控制(GPIO05从按键功能改为补水泵控制) |
 | 加热片 | GPIO10 | 加热控制 |
-| PWM风扇 | GPIO04/PWM1 | 散热控制(PWM调速，支持0-100%速度控制) |
+| 风扇(低电平启动) | GPIO04 | 散热开关控制(低电平启动，高电平停止) |
 | LED补光灯 | GPIO03 | 补光控制 |
 | 蜂鸣器 | GPIO09/PWM0 | 报警输出 |
 
@@ -83,7 +83,7 @@
 | GPIO01 | AZDM01浊度传感器 | ADC1输入(模拟电压) |
 | GPIO02 | UART0_TX | 系统调试串口，不可使用 |
 | GPIO03 | LED补光灯 | 数字输出控制 |
-| GPIO04 | PWM风扇 | PWM1调速输出(0-100%) |
+| GPIO04 | 风扇 | 数字输出控制(低电平启动，高电平停止) |
 | GPIO05 | 补水泵继电器 | 高电平触发，低电平关闭(原按键功能已移除) |
 | GPIO06 | 未分配 | 当前未使用 |
 | GPIO07 | 水位传感器 | ADC3输入 |
@@ -147,7 +147,7 @@ suika_demo/
 {"type": "pump", "value": 1, "timestamp": 1234567890}
 {"type": "waterPump", "value": 1, "timestamp": 1234567890}
 {"type": "heater", "value": 1, "timestamp": 1234567890}
-{"type": "fan", "value": 50, "timestamp": 1234567890}
+{"type": "fan", "value": 1, "timestamp": 1234567890}
 {"type": "mode", "value": 0, "timestamp": 1234567890}
 {"type": "plant", "value": 0, "timestamp": 1234567890}
 {"type": "settings", "waterTempMin": 20, "waterTempMax": 28, ...}

@@ -54,7 +54,7 @@ export default class AquaticTankViewModel {
   // 加热器状态：0-关闭，1-开启
   heaterStatus: number = 0;
 
-  // 散热风扇速度（百分比 0-100，由PWM控制）
+  // 散热风扇状态值（0-关闭，1-开启；硬件端为开关控制）
   fanSpeed: number = 0;
 
   // LED灯状态：0-关闭，1-开启

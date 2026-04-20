@@ -32,14 +32,14 @@ void Heater_Off(void);
 int Heater_GetState(void);
 
 /**
- * @brief Set fan speed (0-100%)
- * @param speedPercent Fan speed percentage
+ * @brief Set fan control value (0=off, non-zero=on)
+ * @param speedPercent Kept for compatibility; hardware treats non-zero as ON
  */
 void Fan_SetSpeed(int speedPercent);
 
 /**
- * @brief Get current fan speed
- * @return Fan speed percentage (0-100)
+ * @brief Get current fan state value
+ * @return 0 for OFF, 1 for ON
  */
 int Fan_GetSpeed(void);
 

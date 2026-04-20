@@ -193,7 +193,7 @@ void TankControl_ManualFan(int speed)
     if (g_control_mode == CONTROL_MODE_MANUAL)
     {
         Fan_SetSpeed(speed);
-        printf("[TankControl] Fan speed set to %d%%\n", speed);
+        printf("[TankControl] Fan state set: %s\n", speed > 0 ? "ON" : "OFF");
     }
     else
     {
@@ -244,7 +244,7 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue,
         if (!isManualMode)
         {
             Heater_Off();
-            Fan_SetSpeed(100);  // Maximum cooling
+            Fan_SetSpeed(1);  // Fan ON (digital control)
         }
         return;
     }
@@ -322,14 +322,10 @@ static void AutoTemperatureControl(float waterTemp)
         {
             Heater_Off();
         }
-        // Calculate fan speed based on temperature difference
-        float tempDiff = waterTemp - g_current_params.waterTempMax;
-        int fanSpeed = (int)(tempDiff * 20);  // 20% per degree over max
-        if (fanSpeed < 30) fanSpeed = 30;
-        if (fanSpeed > 100) fanSpeed = 100;
-        if (Fan_GetSpeed() != fanSpeed)
+        // Hardware fan is now digital ON/OFF (active-low), no PWM speed control
+        if (Fan_GetSpeed() == 0)
         {
-            Fan_SetSpeed(fanSpeed);
+            Fan_SetSpeed(1);
         }
     }
     else

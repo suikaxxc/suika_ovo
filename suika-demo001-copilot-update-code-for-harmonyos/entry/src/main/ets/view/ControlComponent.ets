@@ -2,13 +2,14 @@ import AquaticTankViewModel from "../viewmodel/AquaticTankViewModel";
 import { ControlModeArray } from "../common/constants/Constant";
 import { promptAction } from '@kit.ArkUI';
 
-// 默认风扇速度（百分比）
-const DEFAULT_FAN_SPEED: number = 50;
+// 风扇滑条占位值（仅展示，不控制硬件）
+const FAN_SLIDER_PLACEHOLDER: number = 50;
 
 @Component
 export struct ControlComponent {
   @Link
   item: AquaticTankViewModel;
+  @State fanSliderValue: number = FAN_SLIDER_PLACEHOLDER;
 
   // 回调函数不能使用@Prop装饰器，直接作为普通属性传递
   onControlChange: (controlType: string, value: number) => void = () => {};
@@ -224,7 +225,7 @@ export struct ControlComponent {
         .backgroundColor('#FBE9E7')
         .borderRadius(10)
 
-        // 散热风扇控制（PWM调速）
+        // 散热风扇控制（开关控制，滑条仅展示）
         Column() {
           Row() {
             Row() {
@@ -236,7 +237,7 @@ export struct ControlComponent {
                   .fontSize(14)
                   .fontWeight(FontWeight.Medium)
                   .fontColor('#333333')
-                Text(this.item.fanSpeed > 0 ? `${this.item.fanSpeed}%` : "已关闭")
+                Text(this.item.fanSpeed > 0 ? "运行中" : "已关闭")
                   .fontSize(12)
                   .fontColor(this.item.fanSpeed > 0 ? '#00BCD4' : '#999999')
               }
@@ -245,34 +246,30 @@ export struct ControlComponent {
             }
 
             Blank()
-
-            Button(this.item.fanSpeed > 0 ? "关闭" : "开启")
-              .fontSize(14)
-              .fontColor(Color.White)
-              .backgroundColor(this.item.fanSpeed > 0 ? '#757575' : '#00BCD4')
-              .height(32)
-              .width(70)
-              .borderRadius(16)
+            Toggle({ type: ToggleType.Switch, isOn: this.item.fanSpeed > 0 })
+              .width(50)
+              .height(26)
+              .selectedColor('#00BCD4')
+              .switchPointColor(Color.White)
               .enabled(this.item.controlMode === 1)
               .opacity(this.item.controlMode === 1 ? 1 : 0.5)
-              .onClick(() => {
-                if (this.item.fanSpeed > 0) {
-                  this.item.fanSpeed = 0;
-                } else {
-                  this.item.fanSpeed = DEFAULT_FAN_SPEED;
+              .onChange((isOn: boolean) => {
+                const newFanValue = isOn ? 1 : 0;
+                if (this.item.fanSpeed !== newFanValue) {
+                  this.item.fanSpeed = newFanValue;
+                  this.onControlChange('fan', newFanValue);
                 }
-                this.onControlChange('fan', this.item.fanSpeed);
               })
           }
           .width('100%')
 
-          // 风扇速度滑块控制
+          // 风扇速度滑块（仅占位展示，不控制硬件）
           Row() {
             Text("0%")
               .fontSize(10)
               .fontColor('#999999')
             Slider({
-              value: this.item.fanSpeed,
+              value: this.fanSliderValue,
               min: 0,
               max: 100,
               step: 5,
@@ -283,13 +280,10 @@ export struct ControlComponent {
               .trackColor('#E0E0E0')
               .selectedColor('#00BCD4')
               .showTips(true)
-              .enabled(this.item.controlMode === 1)
-              .opacity(this.item.controlMode === 1 ? 1 : 0.5)
-              .onChange((value: number, mode: SliderChangeMode) => {
-                this.item.fanSpeed = Math.round(value);
-                if (mode === SliderChangeMode.End) {
-                  this.onControlChange('fan', this.item.fanSpeed);
-                }
+              .enabled(true)
+              .opacity(0.8)
+              .onChange((value: number) => {
+                this.fanSliderValue = Math.round(value);
               })
             Text("100%")
               .fontSize(10)
@@ -297,6 +291,10 @@ export struct ControlComponent {
           }
           .width('100%')
           .margin({ top: 8 })
+          Text("滑条仅作展示，实际控制请使用右侧开关")
+            .fontSize(10)
+            .fontColor('#999999')
+            .margin({ top: 6 })
         }
         .width('100%')
         .padding(12)
