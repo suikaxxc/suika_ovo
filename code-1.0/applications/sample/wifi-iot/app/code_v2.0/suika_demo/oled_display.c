@@ -176,13 +176,14 @@ static void OledDisplay_Task(void *arg)
 
     // Auto page switching enabled; manual page flip via MQTT remains available
 
-    int elapsedAutoFlipMs = 0;
+    int timeSinceLastAutoFlipMs = 0;
     while (1)
     {
         // Check if page change was requested via OledDisplay_NextPage()
         if (g_page_changed)
         {
             g_page_changed = 0;
+            timeSinceLastAutoFlipMs = 0;
             OledFillScreen(0x00);
 
             const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
@@ -204,10 +205,10 @@ static void OledDisplay_Task(void *arg)
                 break;
         }
 
-        elapsedAutoFlipMs += REFRESH_INTERVAL_MS;
-        if (elapsedAutoFlipMs >= AUTO_PAGE_INTERVAL_MS)
+        timeSinceLastAutoFlipMs += REFRESH_INTERVAL_MS;
+        if (timeSinceLastAutoFlipMs >= AUTO_PAGE_INTERVAL_MS)
         {
-            elapsedAutoFlipMs = 0;
+            timeSinceLastAutoFlipMs = 0;
             OledDisplay_NextPage();
         }
 
