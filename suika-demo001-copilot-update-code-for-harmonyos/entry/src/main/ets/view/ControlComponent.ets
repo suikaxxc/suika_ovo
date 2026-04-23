@@ -3,7 +3,7 @@ import { ControlModeArray } from "../common/constants/Constant";
 import { promptAction } from '@kit.ArkUI';
 
 // 默认风扇速度（百分比）
-const DEFAULT_FAN_SPEED: number = 50;
+const DEFAULT_FAN_SPEED: number = 100;
 
 @Component
 export struct ControlComponent {
