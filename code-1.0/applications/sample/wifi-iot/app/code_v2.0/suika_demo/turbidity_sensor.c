@@ -4,11 +4,12 @@
  * Uses ADC1 (GPIO01) for turbidity measurement
  *
  * Sensor output: analog voltage (typically 0.5V ~ 4.5V)
- * Acquisition follows MQ2-style direct ADC sampling, then converts to NTU.
+ * Read ADC raw first (MQ2-style acquisition), then map raw to NTU via adaptive calibration.
  */
 
 #include <stdio.h>
 #include <stdint.h>
+#include <limits.h>
 
 #include "ohos_init.h"
 #include "cmsis_os2.h"
@@ -37,34 +38,36 @@
 // ratio = Vout / Vadc = (R1 + R2) / R2 (R1: upper resistor, R2: lower resistor to GND)
 // This value MUST match the actual resistor divider on hardware.
 // Current configuration assumes 4.5V -> 1.8V at ADC pin, so ratio = 4.5 / 1.8 = 2.5.
-// If your hardware divider differs, measure Vadc and Vout under a stable condition and set:
-// TURBIDITY_DIVIDER_RATIO = Vout / Vadc
+// One matching example is R1=15kΩ (upper resistor from sensor Vout to ADC node)
+// and R2=10kΩ (lower resistor from ADC node to GND): (15k+10k)/10k = 2.5.
 #define TURBIDITY_DIVIDER_RATIO 2.5f
 
-// MQ2-style direct read + short averaging for better stability
+// Simple averaging for stable ADC reading:
+// 8 samples provides basic noise suppression while keeping control-loop response fast.
+// This choice aligns with periodic control-loop sampling cadence in suika_demo.
 #define TURBIDITY_SAMPLE_COUNT 8
 #define TURBIDITY_LOG_UPDATE_COUNT 30U
-#define TURBIDITY_NTU_MIN 0
-#define TURBIDITY_NTU_MAX 1000
+// Default fallback mapping anchors; should be tuned per deployment water conditions.
+#define TURBIDITY_DEFAULT_CLEAR_NTU 25.0f
+#define TURBIDITY_DEFAULT_DIRTY_NTU 1000.0f
+// Startup raw span between clear reference and initial turbid reference.
+// 600 is used as a practical initial dynamic range to avoid near-zero span on boot.
+#define TURBIDITY_STARTUP_TURBID_SPAN_RAW 600
+#define TURBIDITY_MIN_EFFECTIVE_SPAN_RAW 120
+#define TURBIDITY_MAX_EFFECTIVE_SPAN_RAW 1000
+#define TURBIDITY_SAT_HIGH_RAW 4080
+#define TURBIDITY_SAT_LOW_RAW 15
+#define TURBIDITY_SAT_WARN_COUNT 20U
 
 static unsigned short g_turbidity_raw = 0;
 static float g_turbidity_vout = AZDM01_MAX_VOUT;
 static int g_turbidity_ntu = 0;
 static int g_turbidity_initialized = 0;
 static uint32_t g_update_count = 0;
-static int g_turbidity_manual_mode = 0;
-static int g_turbidity_manual_ntu = 120;
-
-static int ReadRawMq2Style(unsigned short *rawOut)
-{
-    unsigned short raw = 0;
-    if (AdcRead(TURBIDITY_ADC_CHANNEL, &raw,
-                WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) != WIFI_IOT_SUCCESS) {
-        return 0;
-    }
-    *rawOut = raw;
-    return 1;
-}
+static unsigned short g_raw_clear_ref = 0;
+static unsigned short g_raw_turbid_ref = 0;
+static uint32_t g_adc_high_saturation_count = 0;
+static uint32_t g_adc_low_saturation_count = 0;
 
 static int ReadAveragedRaw(unsigned short *rawOut)
 {
@@ -74,7 +77,8 @@ static int ReadAveragedRaw(unsigned short *rawOut)
 
     for (i = 0; i < TURBIDITY_SAMPLE_COUNT; i++) {
         unsigned short raw = 0;
-        if (ReadRawMq2Style(&raw)) {
+        if (AdcRead(TURBIDITY_ADC_CHANNEL, &raw,
+                    WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS) {
             sum += raw;
             validSamples++;
         }
@@ -88,11 +92,80 @@ static int ReadAveragedRaw(unsigned short *rawOut)
     return 1;
 }
 
+static int CalculateNTUFromRaw(unsigned short raw)
+{
+    if (g_raw_clear_ref == 0) {
+        return (int)TURBIDITY_DEFAULT_CLEAR_NTU;
+    }
+    if (g_raw_turbid_ref >= g_raw_clear_ref) {
+        if (g_raw_clear_ref > TURBIDITY_STARTUP_TURBID_SPAN_RAW) {
+            g_raw_turbid_ref = (unsigned short)(g_raw_clear_ref - TURBIDITY_STARTUP_TURBID_SPAN_RAW);
+        } else {
+            g_raw_turbid_ref = 0;
+        }
+    }
+
+    // Adaptive calibration window update: clear water -> higher raw, dirty water -> lower raw.
+    if (raw > g_raw_clear_ref) {
+        unsigned short prevClearRef = g_raw_clear_ref;
+        g_raw_clear_ref = raw;
+        // When clear reference drifts upward (noise/offset), shift turbid reference together
+        // to avoid unbounded span inflation under long-term clear-water sampling.
+        if (g_raw_turbid_ref < g_raw_clear_ref) {
+            unsigned short delta = (unsigned short)(g_raw_clear_ref - prevClearRef);
+            if (delta <= (USHRT_MAX - g_raw_turbid_ref)) {
+                unsigned short shifted = (unsigned short)(g_raw_turbid_ref + delta);
+                if (shifted < g_raw_clear_ref) {
+                    g_raw_turbid_ref = shifted;
+                }
+            }
+        }
+    }
+    if (raw < g_raw_turbid_ref) {
+        g_raw_turbid_ref = raw;
+    }
+
+    if (raw >= TURBIDITY_SAT_HIGH_RAW) {
+        g_adc_high_saturation_count++;
+    } else {
+        g_adc_high_saturation_count = 0;
+    }
+    if (raw <= TURBIDITY_SAT_LOW_RAW) {
+        g_adc_low_saturation_count++;
+    } else {
+        g_adc_low_saturation_count = 0;
+    }
+    if ((g_adc_high_saturation_count == TURBIDITY_SAT_WARN_COUNT) ||
+        (g_adc_low_saturation_count == TURBIDITY_SAT_WARN_COUNT)) {
+        printf("[Turbidity][Warn] ADC saturation detected: raw=%u clear_ref=%u turbid_ref=%u "
+               "(check divider/wiring/power)\n",
+               raw, g_raw_clear_ref, g_raw_turbid_ref);
+    }
+
+    int span = (int)g_raw_clear_ref - (int)g_raw_turbid_ref;
+    if (span > TURBIDITY_MAX_EFFECTIVE_SPAN_RAW) {
+        if (g_raw_clear_ref > TURBIDITY_MAX_EFFECTIVE_SPAN_RAW) {
+            g_raw_turbid_ref = (unsigned short)(g_raw_clear_ref - TURBIDITY_MAX_EFFECTIVE_SPAN_RAW);
+        } else {
+            g_raw_turbid_ref = 0;
+        }
+        span = (int)g_raw_clear_ref - (int)g_raw_turbid_ref;
+    }
+    if (span < TURBIDITY_MIN_EFFECTIVE_SPAN_RAW) {
+        span = TURBIDITY_MIN_EFFECTIVE_SPAN_RAW;
+    }
+
+    float ratio = ((float)g_raw_clear_ref - (float)raw) / (float)span;
+    if (ratio < 0.0f) ratio = 0.0f;
+    if (ratio > 1.0f) ratio = 1.0f;
+
+    float ntu = TURBIDITY_DEFAULT_CLEAR_NTU +
+                ratio * (TURBIDITY_DEFAULT_DIRTY_NTU - TURBIDITY_DEFAULT_CLEAR_NTU);
+    return (int)(ntu + 0.5f);
+}
+
 int Get_TurbidityNTU(void)
 {
-    if (g_turbidity_manual_mode) {
-        return g_turbidity_manual_ntu;
-    }
     return g_turbidity_ntu;
 }
 
@@ -106,31 +179,9 @@ unsigned short Get_TurbidityRaw(void)
     return g_turbidity_raw;
 }
 
-void Turbidity_SetManualMode(int enabled)
-{
-    g_turbidity_manual_mode = (enabled != 0) ? 1 : 0;
-    printf("[Turbidity] Manual mode: %s\n", g_turbidity_manual_mode ? "ON" : "OFF");
-}
-
-int Turbidity_IsManualMode(void)
-{
-    return g_turbidity_manual_mode;
-}
-
-void Turbidity_SetManualValue(int ntu)
-{
-    if (ntu < TURBIDITY_NTU_MIN) ntu = TURBIDITY_NTU_MIN;
-    if (ntu > TURBIDITY_NTU_MAX) ntu = TURBIDITY_NTU_MAX;
-    g_turbidity_manual_ntu = ntu;
-    printf("[Turbidity] Manual NTU set to %d\n", g_turbidity_manual_ntu);
-}
-
 void Turbidity_Update(void)
 {
     if (!g_turbidity_initialized) {
-        return;
-    }
-    if (g_turbidity_manual_mode) {
         return;
     }
 
@@ -148,23 +199,9 @@ void Turbidity_Update(void)
     // Clamp to specified sensor range
     if (vout < AZDM01_MIN_VOUT) vout = AZDM01_MIN_VOUT;
     if (vout > AZDM01_MAX_VOUT) vout = AZDM01_MAX_VOUT;
+
     g_turbidity_vout = vout;
-
-    // AZDM01 characteristic: clearer water -> higher voltage, dirtier water -> lower voltage
-    float ratio = (AZDM01_MAX_VOUT - g_turbidity_vout) / (AZDM01_MAX_VOUT - AZDM01_MIN_VOUT);
-    if (ratio < 0.0f) ratio = 0.0f;
-    if (ratio > 1.0f) ratio = 1.0f;
-
-    int instantNtu = (int)(ratio * (float)TURBIDITY_NTU_MAX + 0.5f);
-    if (instantNtu < TURBIDITY_NTU_MIN) instantNtu = TURBIDITY_NTU_MIN;
-    if (instantNtu > TURBIDITY_NTU_MAX) instantNtu = TURBIDITY_NTU_MAX;
-
-    // Light smoothing for display/control stability
-    if (g_update_count == 0U) {
-        g_turbidity_ntu = instantNtu;
-    } else {
-        g_turbidity_ntu = (g_turbidity_ntu * 3 + instantNtu) / 4;
-    }
+    g_turbidity_ntu = CalculateNTUFromRaw(g_turbidity_raw);
 
     g_update_count++;
     if ((g_update_count % TURBIDITY_LOG_UPDATE_COUNT) == 0U) {
@@ -180,18 +217,28 @@ void Turbidity_Init(void)
     GpioInit();
 
     // Wait sensor analog output to stabilize after power-on.
+    // Note: this is a blocking delay during startup by design.
     osDelay(((uint32_t)AZDM01_WARMUP_SECONDS) * 1000U);
 
     g_turbidity_initialized = 1;
     g_update_count = 0;
-    g_turbidity_raw = 0;
-    g_turbidity_vout = AZDM01_MAX_VOUT;
-    g_turbidity_ntu = 0;
+    g_raw_clear_ref = 0;
+    g_raw_turbid_ref = 0;
+    g_adc_high_saturation_count = 0;
+    g_adc_low_saturation_count = 0;
 
-    // Prime one reading right after warm-up
-    Turbidity_Update();
+    // Prime one reading and initialize adaptive references.
+    if (ReadAveragedRaw(&g_turbidity_raw)) {
+        g_raw_clear_ref = g_turbidity_raw;
+        if (g_turbidity_raw > TURBIDITY_STARTUP_TURBID_SPAN_RAW) {
+            g_raw_turbid_ref = (unsigned short)(g_turbidity_raw - TURBIDITY_STARTUP_TURBID_SPAN_RAW);
+        } else {
+            g_raw_turbid_ref = 0;
+        }
+        Turbidity_Update();
+    }
 
-    printf("[Turbidity] Initialized on GPIO01/ADC1 (MQ2-style ADC read, VCC=%.1fV, warmup=%ds)\n",
+    printf("[Turbidity] Initialized on GPIO01/ADC1 (sensor VCC=%.1fV, warmup=%ds)\n",
            AZDM01_SUPPLY_VOLTAGE_V, AZDM01_WARMUP_SECONDS);
 }
 

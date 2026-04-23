@@ -4,7 +4,7 @@
  * Shows sensor data and actuator status on OLED screen
  * 
  * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump relay control
- * OLED supports both auto page flip and MQTT-triggered manual page flip
+ * OLED page flip is now controlled via MQTT command from HarmonyOS app
  */
 
 #include <stdio.h>
@@ -44,9 +44,6 @@
 // Display refresh interval
 #define REFRESH_INTERVAL_MS 200
 
-// Auto page flip interval
-#define AUTO_PAGE_INTERVAL_SEC 10
-
 // I2C initialization delay (wait for I2C_CommonInit to complete)
 #define I2C_INIT_DELAY_SEC 2
 
@@ -59,7 +56,6 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
-    int lightIntensity = Get_LightIntensity();
     int turbidityNTU = Get_TurbidityNTU();
     const TankParams *params = TankControl_GetParams();
 
@@ -79,13 +75,24 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "TDS:%dppm", tdsValue);
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Light intensity
-    snprintf(line, lineSize, "Light:%dlux", lightIntensity);
+    // Line 4: Turbidity
+    snprintf(line, lineSize, "NTU:%d", turbidityNTU);
     OledShowString(0, 4, line, 1);
 
-    // Line 5: Turbidity
-    snprintf(line, lineSize, "Turb:%dNTU", turbidityNTU);
-    OledShowString(0, 5, line, 1);
+    // Line 5: Alarm status
+    AlarmLevel alarm = Alarm_GetLevel();
+    if (alarm == ALARM_NONE)
+    {
+        OledShowString(0, 5, "Status: OK", 1);
+    }
+    else if (alarm == ALARM_WARNING)
+    {
+        OledShowString(0, 5, "Status: WARN", 1);
+    }
+    else
+    {
+        OledShowString(0, 5, "Status: DANGER", 1);
+    }
 }
 
 static void RenderActuatorPage(char *line, size_t lineSize)
@@ -132,8 +139,10 @@ static void RenderStatusPage(char *line, size_t lineSize)
              MQTT_IsConnected() ? "Connected" : "Disconn.  ");
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Reserved (cleared)
-    OledShowString(0, 4, "                ", 1);
+    // Line 4: DS18B20 sensor
+    snprintf(line, lineSize, "TempSensor: %s",
+             DS18B20_IsPresent() ? "OK" : "N/A");
+    OledShowString(0, 4, line, 1);
 
     // Line 5: Alarm message (truncated)
     const char *alarmMsg = Alarm_GetMessage();
@@ -172,22 +181,11 @@ static void OledDisplay_Task(void *arg)
     g_oled_initialized = 1;
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
-    printf("[OLED] Display initialized (auto + manual page flip)\n");
+    printf("[OLED] Display initialized (manual page flip via MQTT)\n");
     sleep(1);
 
-    // Auto page switching enabled; manual page flip via MQTT remains available
-
-    uint32_t tickFreq = osKernelGetTickFreq();
-    if (tickFreq == 0) {
-        tickFreq = 1;
-    }
-    uint64_t autoFlipIntervalTicks64 = (uint64_t)AUTO_PAGE_INTERVAL_SEC * (uint64_t)tickFreq;
-    uint32_t autoFlipIntervalTicks =
-        (autoFlipIntervalTicks64 > UINT32_MAX) ? UINT32_MAX : (uint32_t)autoFlipIntervalTicks64;
-    if (autoFlipIntervalTicks == 0) {
-        autoFlipIntervalTicks = 1;
-    }
-    uint32_t lastAutoFlipTick = osKernelGetTickCount();
+    // Note: Auto page switching removed
+    // Page flip is now controlled via MQTT command from HarmonyOS app
 
     while (1)
     {
@@ -195,7 +193,6 @@ static void OledDisplay_Task(void *arg)
         if (g_page_changed)
         {
             g_page_changed = 0;
-            lastAutoFlipTick = osKernelGetTickCount();
             OledFillScreen(0x00);
 
             const char *titles[] = {"[Sensors]", "[Actuators]", "[System]"};
@@ -215,14 +212,6 @@ static void OledDisplay_Task(void *arg)
             case PAGE_STATUS:
                 RenderStatusPage(line, sizeof(line));
                 break;
-        }
-
-        uint32_t currentTick = osKernelGetTickCount();
-        // Unsigned subtraction is wrap-safe for tick counter overflow.
-        if ((currentTick - lastAutoFlipTick) >= autoFlipIntervalTicks)
-        {
-            lastAutoFlipTick = currentTick;
-            OledDisplay_NextPage();
         }
 
         usleep(REFRESH_INTERVAL_MS * 1000);  // Convert ms to us

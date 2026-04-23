@@ -3,7 +3,7 @@
  * @brief AZDM01 turbidity sensor interface for aquatic plant tank
  *
  * Sensor output: analog voltage (typically 0.5V ~ 4.5V)
- * Acquisition: MQ2-like raw ADC sampling + voltage-based NTU conversion
+ * Acquisition: MQ2-like raw ADC sampling + adaptive raw-to-NTU mapping
  */
 
 #ifndef __TURBIDITY_SENSOR_H__
@@ -49,24 +49,6 @@ float Get_TurbidityVoltage(void);
  * @return Raw ADC value (0-4095)
  */
 unsigned short Get_TurbidityRaw(void);
-
-/**
- * @brief Enable/disable manual turbidity override mode
- * @param enabled 1-enable, 0-disable
- */
-void Turbidity_SetManualMode(int enabled);
-
-/**
- * @brief Get manual turbidity override mode
- * @return 1-enabled, 0-disabled
- */
-int Turbidity_IsManualMode(void);
-
-/**
- * @brief Set manual turbidity value used when manual mode is enabled
- * @param ntu Turbidity value in NTU (will be clamped to 0-1000)
- */
-void Turbidity_SetManualValue(int ntu);
 
 #ifdef __cplusplus
 }
