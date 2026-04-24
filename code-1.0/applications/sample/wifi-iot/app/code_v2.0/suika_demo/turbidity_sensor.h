@@ -15,7 +15,7 @@ extern "C" {
 
 /**
  * @brief Initialize AZDM01 turbidity sensor.
- *        Includes sensor warm-up stage to avoid unstable startup readings.
+ *        Uses MQ2-like direct ADC acquisition path (no startup warm-up delay).
  */
 void Turbidity_Init(void);
 
