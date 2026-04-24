@@ -4,7 +4,7 @@
  * Uses ADC1 (GPIO01) for turbidity measurement
  *
  * Sensor output: analog voltage (typically 0.5V ~ 4.5V)
- * Read ADC raw first (MQ2-style acquisition), then map raw to NTU via adaptive calibration.
+ * Read ADC raw first (MQ2-style acquisition), then map voltage to NTU with fixed linear mapping.
  */
 
 #include <stdio.h>
