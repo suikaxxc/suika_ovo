@@ -43,9 +43,12 @@
 // 8 samples provides basic noise suppression while keeping control-loop response fast.
 // This choice aligns with periodic control-loop sampling cadence in suika_demo.
 #define TURBIDITY_SAMPLE_COUNT 8
+// Control loop runs every ~2s; log every 30 updates (~60s) to avoid serial flooding.
 #define TURBIDITY_LOG_UPDATE_COUNT 30U
 #define TURBIDITY_MIN_NTU 0.0f
 #define TURBIDITY_MAX_NTU 1000.0f
+// Consider values near ADC full-scale (4095) and near-zero as potential saturation.
+// Warn only after persistent saturation across multiple updates to reduce false alarms.
 #define TURBIDITY_SAT_HIGH_RAW 4080
 #define TURBIDITY_SAT_LOW_RAW 15
 #define TURBIDITY_SAT_WARN_COUNT 20U
