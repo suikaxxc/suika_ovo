@@ -35,8 +35,8 @@
 // ratio = Vout / Vadc = (R1 + R2) / R2 (R1: upper resistor, R2: lower resistor to GND)
 // This value MUST match the actual resistor divider on hardware.
 // Current configuration assumes 4.5V -> 1.8V at ADC pin, so ratio = 4.5 / 1.8 = 2.5.
-// One matching example is R1=15kΩ (upper resistor from sensor Vout to ADC node)
-// and R2=10kΩ (lower resistor from ADC node to GND): (15k+10k)/10k = 2.5.
+// One matching example is R1=15kΩ (from sensor Vout to ADC junction node)
+// and R2=10kΩ (from ADC junction node to GND): (15k+10k)/10k = 2.5.
 #define TURBIDITY_DIVIDER_RATIO 2.5f
 
 // Simple averaging for stable ADC reading:
@@ -149,6 +149,7 @@ void Turbidity_Update(void)
     g_turbidity_ntu = CalculateNTUFromVoltage(g_turbidity_vout);
 
     g_update_count++;
+    // uint32_t wraparound is acceptable here: periodic modulo logging remains valid after overflow.
     if ((g_update_count % TURBIDITY_LOG_UPDATE_COUNT) == 0U) {
         printf("[Turbidity] raw=%u adc=%.3fV vout=%.3fV ntu=%d (VCC=%.1fV)\n",
                g_turbidity_raw, adcVoltage, g_turbidity_vout, g_turbidity_ntu,
