@@ -27,6 +27,9 @@ export default class AquaticTankViewModel {
   // 水质TDS值（ppm，由TDS传感器获取）
   tdsValue: number = 0;
 
+  // 浊度值（NTU，由浊度传感器获取）
+  turbidityValue: number = 0;
+
   // 水质TDS最佳范围下限
   tdsMin: number = 100;
 

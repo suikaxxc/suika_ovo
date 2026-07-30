@@ -23,6 +23,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -48,6 +49,21 @@
 static int g_mqtt_connected = 0;
 static int g_mqtt_socket = -1;
 
+#define YW01_MAX_MM 90
+
+static int mqtt_clamp_int(int value, int min, int max)
+{
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
+
+static int mqtt_water_level_mm_to_percent(int mm)
+{
+    int mmClamped = mqtt_clamp_int(mm, 0, YW01_MAX_MM);
+    return (mmClamped * 100) / YW01_MAX_MM;
+}
+
 int MQTT_IsConnected(void)
 {
     return g_mqtt_connected;
@@ -67,6 +83,7 @@ static void PublishSensorData(int socket)
     float waterTemp = Get_WaterTemperature();
     int lightIntensity = Get_LightIntensity();
     int tdsValue = Get_TDSValue();
+    int turbidityValue = Get_TurbidityValue();
 
     // Get actuator states
     int pumpStatus = Pump_GetState(PUMP_FILL);
@@ -86,6 +103,7 @@ static void PublishSensorData(int socket)
              "\"waterTemp\":%.1f,"
              "\"lightIntensity\":%d,"
              "\"tdsValue\":%d,"
+             "\"turbidityValue\":%d,"
              "\"pumpStatus\":%d,"
              "\"waterPumpStatus\":%d,"
              "\"heaterStatus\":%d,"
@@ -95,7 +113,7 @@ static void PublishSensorData(int socket)
              "\"alarmMessage\":\"%s\","
              "\"controlMode\":%d"
              "}",
-             waterLevel, waterTemp, lightIntensity, tdsValue,
+             waterLevel, waterTemp, lightIntensity, tdsValue, turbidityValue,
              pumpStatus, waterPumpStatus, heaterStatus, fanSpeed, ledStatus,
              (int)alarmLevel, alarmMsg, controlMode);
 
@@ -197,10 +215,16 @@ static void HandleControlCommand(const char *payload, int payloadLen)
             if (ptr) params.waterTempMax = (float)atof(ptr + 15);
 
             ptr = strstr(settingsBuf, "\"waterLevelMin\":");
-            if (ptr) params.waterLevelMin = atoi(ptr + 16);
+            if (ptr) {
+                int waterLevelMinMm = atoi(ptr + 16);
+                params.waterLevelMin = mqtt_water_level_mm_to_percent(waterLevelMinMm);
+            }
 
             ptr = strstr(settingsBuf, "\"waterLevelMax\":");
-            if (ptr) params.waterLevelMax = atoi(ptr + 16);
+            if (ptr) {
+                int waterLevelMaxMm = atoi(ptr + 16);
+                params.waterLevelMax = mqtt_water_level_mm_to_percent(waterLevelMaxMm);
+            }
 
             ptr = strstr(settingsBuf, "\"lightThreshold\":");
             if (ptr) params.lightThreshold = atoi(ptr + 17);
@@ -215,7 +239,7 @@ static void HandleControlCommand(const char *payload, int payloadLen)
             if (ptr) params.tdsMax = atoi(ptr + 9);
 
             TankControl_SetParams(&params);
-            printf("[MQTT] Settings updated: TempMin=%.1f, TempMax=%.1f, WaterMin=%d, WaterMax=%d\n",
+            printf("[MQTT] Settings updated: TempMin=%.1f, TempMax=%.1f, WaterMin=%d%%, WaterMax=%d%%\n",
                    params.waterTempMin, params.waterTempMax, 
                    params.waterLevelMin, params.waterLevelMax);
         }

@@ -25,6 +25,7 @@ static_library("suikaxxc")
         "water_level.c",
         "ds18b20.c",
         "tds_sensor.c",
+        "turbidity_sensor.c",
         "light_sensor.c",
         
         # Actuator modules
@@ -57,4 +58,3 @@ static_library("suikaxxc")
         "//vendor/hisi/hi3861/hi3861/include",
     ]
 }
-

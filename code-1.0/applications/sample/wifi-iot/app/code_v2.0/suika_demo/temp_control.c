@@ -3,18 +3,19 @@
  * @brief Temperature control implementation (heater and PWM fan) for aquatic plant tank
  * 
  * Heater: GPIO10 (digital control) - Active LOW (LOW=ON, HIGH=OFF)
- * Fan: GPIO04/PWM1 - Using PWM for variable speed control - Active LOW
+ * Fan: GPIO04/PWM1 - Using PWM for variable speed control
  * 
  * Note: Since GPIO14 is used for I2C0_SCL in OLED display,
  * we use GPIO04/PWM1 for fan control instead
  * 
  * PWM Configuration (compared with STM32 reference):
  *   - STM32: TIM2, 72MHz/720/100 = 1kHz, Active-HIGH (TIM_OCPolarity_High)
- *   - Hi3861: PWM1, 160MHz/40000 = 4kHz, Active-LOW (inverted duty)
+ *   - Hi3861: PWM1, 160MHz/40000 = 4kHz
  * 
- * IMPORTANT: Both heater and fan use active-low logic:
- *   - LOW level (GPIO_VALUE0) = Device ON/Running
- *   - HIGH level (GPIO_VALUE1) = Device OFF/Stopped
+ * IMPORTANT:
+ *   - Heater uses active-low logic: LOW=ON, HIGH=OFF
+ *   - Fan PWM default uses active-high logic (for common 5V fan drive boards):
+ *       duty越大转速越高，0% duty为停转
  */
 
 #include <stdio.h>
@@ -40,6 +41,10 @@
 
 // PWM frequency for fan (40kHz for DC brushless fan quiet operation)
 #define FAN_PWM_FREQ 40000
+// Fan PWM active level:
+// 0: active-high (default, common 5V fan transistor driver)
+// 1: active-low  (legacy wiring compatibility)
+#define FAN_PWM_ACTIVE_LOW 0
 
 static int g_heater_state = 0;
 static int g_fan_speed = 0;
@@ -55,11 +60,16 @@ void TempControl_Init(void)
     // Initialize fan PWM (start with fan OFF)
     IoSetFunc(FAN_IO, WIFI_IOT_IO_FUNC_GPIO_4_PWM1_OUT);
     PwmInit(FAN_PWM_PORT);
-    // Set to 100% duty (all HIGH) to keep fan OFF (active-low)
-    PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ);
+    // Start with fan OFF
+#if FAN_PWM_ACTIVE_LOW
+    PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ); // all HIGH -> OFF
+#else
+    PwmStart(FAN_PWM_PORT, 1, FAN_PWM_FREQ);            // ~0% duty -> OFF
+#endif
     g_fan_speed = 0;
 
-    printf("[TempControl] Initialized (active-low logic: LOW=ON, HIGH=OFF)\n");
+    printf("[TempControl] Initialized (heater active-low, fan active-%s)\n",
+           FAN_PWM_ACTIVE_LOW ? "low" : "high");
 }
 
 void Heater_On(void)
@@ -86,36 +96,34 @@ void Fan_SetSpeed(int speedPercent)
 
     g_fan_speed = speedPercent;
 
-    // Hi3861 PWM API: duty cycle = duty/freq, frequency = 160MHz/freq
-    // With freq=40000: PWM frequency = 160MHz/40000 = 4kHz
-    // 
-    // For active-low logic (like STM32 reference with inverted polarity):
-    // - 0% speed = 100% duty cycle (always HIGH = OFF)
-    // - 100% speed = ~0% duty cycle (always LOW = full ON)
-    // 
-    // Note: duty must be in range [1, 65535], so we use 1 as minimum instead of 0
-    // This means 100% speed is actually 99.9975% duty (duty=1/freq=40000)
-    
-    if (speedPercent == 0)
-    {
-        // Full stop: 100% duty (all HIGH = off)
-        PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ);
+    // Hi3861 PWM API: duty ratio = duty/freq, frequency = 160MHz/freq
+    // Note: duty must be >=1, use 1 as "near 0%" duty.
+    if (speedPercent == 0) {
+#if FAN_PWM_ACTIVE_LOW
+        PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ); // OFF
+#else
+        PwmStart(FAN_PWM_PORT, 1, FAN_PWM_FREQ);            // OFF
+#endif
+        return;
     }
-    else if (speedPercent >= 100)
-    {
-        // Full speed: minimum duty (almost all LOW = full on)
-        // Use duty=1 instead of 0 to stay within valid range [1, 65535]
-        PwmStart(FAN_PWM_PORT, 1, FAN_PWM_FREQ);
+
+    if (speedPercent >= 100) {
+#if FAN_PWM_ACTIVE_LOW
+        PwmStart(FAN_PWM_PORT, 1, FAN_PWM_FREQ);            // full ON
+#else
+        PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ); // full ON
+#endif
+        return;
     }
-    else
-    {
-        // Variable speed: invert duty for active-low
-        // speedPercent 1-99 maps to duty (freq-1) down to 2
-        int invertedPercent = 100 - speedPercent;
-        uint16_t duty = (uint16_t)((FAN_PWM_FREQ * invertedPercent) / 100);
-        if (duty < 1) duty = 1;  // Ensure duty is at least 1
-        PwmStart(FAN_PWM_PORT, duty, FAN_PWM_FREQ);
-    }
+
+#if FAN_PWM_ACTIVE_LOW
+    uint16_t duty = (uint16_t)((FAN_PWM_FREQ * (100 - speedPercent)) / 100);
+#else
+    uint16_t duty = (uint16_t)((FAN_PWM_FREQ * speedPercent) / 100);
+#endif
+    if (duty < 1) duty = 1;
+    if (duty > FAN_PWM_FREQ) duty = FAN_PWM_FREQ;
+    PwmStart(FAN_PWM_PORT, duty, FAN_PWM_FREQ);
 }
 
 int Fan_GetSpeed(void)
@@ -125,5 +133,5 @@ int Fan_GetSpeed(void)
 
 void Fan_Stop(void)
 {
-    Fan_SetSpeed(0);  // This will set 100% duty (all HIGH = OFF)
+    Fan_SetSpeed(0);
 }

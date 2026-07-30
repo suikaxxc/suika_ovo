@@ -1,6 +1,6 @@
 /**
  * @file pump_control.h
- * @brief Water pump control interface (L9110S motor driver) for aquatic plant tank
+ * @brief Water pump control interface (high-level relay drive) for aquatic plant tank
  */
 
 #ifndef __PUMP_CONTROL_H__

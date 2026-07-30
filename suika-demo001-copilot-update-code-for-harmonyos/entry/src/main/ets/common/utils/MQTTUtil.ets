@@ -16,8 +16,8 @@ export default class MQTTUtil {
     // 2、连接
     let isConnect = await this.mqttAsyncClient.connect(
       {
-        userName: "userName",
-        password: "password",
+        userName: "mqtt_user",
+        password: "mqtt_password",
         connectTimeout: 300
       }
     );

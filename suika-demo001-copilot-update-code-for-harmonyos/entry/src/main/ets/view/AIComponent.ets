@@ -8,6 +8,7 @@ import { promptAction } from '@kit.ArkUI';
 export struct AIComponent {
   @Prop
   item: AquaticTankViewModel;
+  onScrollOffsetChange: (offsetY: number) => void = () => {};
 
   @State
   resultString: string = '点击"AI养护建议"获取智能养护策略';
@@ -140,10 +141,15 @@ export struct AIComponent {
       .backgroundColor('#FAFAFA')
       .borderRadius(10)
       .scrollBar(BarState.Auto)
+      .scrollable(ScrollDirection.Vertical)
+      .onDidScroll((xOffset: number, yOffset: number) => {
+        void xOffset;
+        this.onScrollOffsetChange(yOffset);
+      })
     }
     .padding(14)
     .width('94%')
-    .height(320)
+    .height('100%')
     .borderRadius(14)
     .backgroundColor(Color.White)
     .margin({ left: '3%', right: '3%' })

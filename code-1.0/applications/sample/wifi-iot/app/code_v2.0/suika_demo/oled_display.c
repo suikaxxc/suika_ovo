@@ -3,12 +3,13 @@
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
  * 
- * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
- * OLED page flip is now controlled via MQTT command from HarmonyOS app
+ * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump relay control
+ * OLED supports automatic page flip and MQTT manual page flip
  */
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #include "ohos_init.h"
@@ -21,8 +22,8 @@
 #include "oled_ssd1306.h"
 #include "i2c_common.h"
 #include "water_level.h"
-#include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -43,6 +44,10 @@
 // Display refresh interval
 #define REFRESH_INTERVAL_MS 200
 
+// Auto page switch interval
+#define AUTO_PAGE_SWITCH_INTERVAL_MS 20000
+#define MS_PER_SECOND 1000U
+
 // I2C initialization delay (wait for I2C_CommonInit to complete)
 #define I2C_INIT_DELAY_SEC 2
 
@@ -55,6 +60,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
+    int turbidityValue = Get_TurbidityValue();
     int lightIntensity = Get_LightIntensity();
     const TankParams *params = TankControl_GetParams();
 
@@ -78,20 +84,9 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "Light:%dlux", lightIntensity);
     OledShowString(0, 4, line, 1);
 
-    // Line 5: Alarm status
-    AlarmLevel alarm = Alarm_GetLevel();
-    if (alarm == ALARM_NONE)
-    {
-        OledShowString(0, 5, "Status: OK", 1);
-    }
-    else if (alarm == ALARM_WARNING)
-    {
-        OledShowString(0, 5, "Status: WARN", 1);
-    }
-    else
-    {
-        OledShowString(0, 5, "Status: DANGER", 1);
-    }
+    // Line 5: Turbidity (replace status to avoid long mixed line overflow)
+    snprintf(line, lineSize, "Turb:%dNTU", turbidityValue);
+    OledShowString(0, 5, line, 1);
 }
 
 static void RenderActuatorPage(char *line, size_t lineSize)
@@ -138,10 +133,8 @@ static void RenderStatusPage(char *line, size_t lineSize)
              MQTT_IsConnected() ? "Connected" : "Disconn.  ");
     OledShowString(0, 3, line, 1);
 
-    // Line 4: DS18B20 sensor
-    snprintf(line, lineSize, "TempSensor: %s",
-             DS18B20_IsPresent() ? "OK" : "N/A");
-    OledShowString(0, 4, line, 1);
+    // Line 4: Reserved (DS18B20 status removed per requirement)
+    OledShowString(0, 4, "                ", 1);
 
     // Line 5: Alarm message (truncated)
     const char *alarmMsg = Alarm_GetMessage();
@@ -162,6 +155,9 @@ static void OledDisplay_Task(void *arg)
 {
     (void)arg;
     static char line[32] = {0};
+    uint32_t tickFreq = 0;
+    uint32_t autoSwitchIntervalTicks = 0;
+    uint32_t lastAutoSwitchTick = 0;
 
     // Wait for I2C to be fully initialized (I2C_CommonInit() in main.c)
     sleep(I2C_INIT_DELAY_SEC);
@@ -180,14 +176,31 @@ static void OledDisplay_Task(void *arg)
     g_oled_initialized = 1;
     OledFillScreen(0x00);
     OledShowString(0, 0, "[Sensors]", 1);
-    printf("[OLED] Display initialized (manual page flip via MQTT)\n");
+    printf("[OLED] Display initialized (auto + manual page flip)\n");
     sleep(1);
 
-    // Note: Auto page switching removed
-    // Page flip is now controlled via MQTT command from HarmonyOS app
+    // Auto page switching initialization
+    tickFreq = osKernelGetTickFreq();
+    if (tickFreq == 0) {
+        tickFreq = 1000; // fallback
+    }
+    // Ceiling division avoids integer truncation causing interval shorter than requested milliseconds.
+    autoSwitchIntervalTicks = (uint32_t)(((uint64_t)AUTO_PAGE_SWITCH_INTERVAL_MS * tickFreq + (MS_PER_SECOND - 1)) / MS_PER_SECOND);
+    if (autoSwitchIntervalTicks == 0) {
+        autoSwitchIntervalTicks = 1;
+    }
+    lastAutoSwitchTick = osKernelGetTickCount();
 
     while (1)
     {
+        uint32_t currentTick = osKernelGetTickCount();
+        if ((currentTick - lastAutoSwitchTick) >= autoSwitchIntervalTicks)
+        {
+            lastAutoSwitchTick = currentTick;
+            g_current_page = (g_current_page + 1) % PAGE_COUNT;
+            g_page_changed = 1;
+        }
+
         // Check if page change was requested via OledDisplay_NextPage()
         if (g_page_changed)
         {
