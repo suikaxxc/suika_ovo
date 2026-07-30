@@ -43,6 +43,26 @@
 
 static int g_heater_state = 0;
 static int g_fan_speed = 0;
+static int g_fan_pwm_mode = 0;
+
+static void Fan_ForceOffByGpio(void)
+{
+    // Stop PWM output first, then force GPIO HIGH for reliable OFF (active-low fan driver)
+    PwmStop(FAN_PWM_PORT);
+    IoSetFunc(FAN_IO, WIFI_IOT_IO_FUNC_GPIO_4_GPIO);
+    GpioSetDir(FAN_GPIO, WIFI_IOT_GPIO_DIR_OUT);
+    GpioSetOutputVal(FAN_GPIO, WIFI_IOT_GPIO_VALUE1);  // HIGH = OFF (active-low)
+    g_fan_pwm_mode = 0;
+}
+
+static void Fan_EnsurePwmMode(void)
+{
+    if (!g_fan_pwm_mode)
+    {
+        IoSetFunc(FAN_IO, WIFI_IOT_IO_FUNC_GPIO_4_PWM1_OUT);
+        g_fan_pwm_mode = 1;
+    }
+}
 
 void TempControl_Init(void)
 {
@@ -52,11 +72,11 @@ void TempControl_Init(void)
     GpioSetOutputVal(HEATER_GPIO, WIFI_IOT_GPIO_VALUE1);  // HIGH = OFF (active-low)
     g_heater_state = 0;
 
-    // Initialize fan PWM (start with fan OFF)
+    // Initialize fan PWM resources
     IoSetFunc(FAN_IO, WIFI_IOT_IO_FUNC_GPIO_4_PWM1_OUT);
     PwmInit(FAN_PWM_PORT);
-    // Set to 100% duty (all HIGH) to keep fan OFF (active-low)
-    PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ);
+    // Start in reliable OFF state by forcing GPIO HIGH
+    Fan_ForceOffByGpio();
     g_fan_speed = 0;
 
     printf("[TempControl] Initialized (active-low logic: LOW=ON, HIGH=OFF)\n");
@@ -98,17 +118,19 @@ void Fan_SetSpeed(int speedPercent)
     
     if (speedPercent == 0)
     {
-        // Full stop: 100% duty (all HIGH = off)
-        PwmStart(FAN_PWM_PORT, FAN_PWM_FREQ, FAN_PWM_FREQ);
+        // Full stop: force GPIO HIGH to avoid PWM boundary ambiguity at duty==freq
+        Fan_ForceOffByGpio();
     }
     else if (speedPercent >= 100)
     {
+        Fan_EnsurePwmMode();
         // Full speed: minimum duty (almost all LOW = full on)
         // Use duty=1 instead of 0 to stay within valid range [1, 65535]
         PwmStart(FAN_PWM_PORT, 1, FAN_PWM_FREQ);
     }
     else
     {
+        Fan_EnsurePwmMode();
         // Variable speed: invert duty for active-low
         // speedPercent 1-99 maps to duty (freq-1) down to 2
         int invertedPercent = 100 - speedPercent;

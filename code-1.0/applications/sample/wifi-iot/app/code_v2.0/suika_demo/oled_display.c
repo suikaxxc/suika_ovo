@@ -3,7 +3,7 @@
  * @brief OLED display implementation for aquatic plant tank
  * Shows sensor data and actuator status on OLED screen
  * 
- * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump L9110S control
+ * Note: GPIO05 button functionality removed - GPIO05 repurposed for fill pump relay control
  * OLED page flip is now controlled via MQTT command from HarmonyOS app
  */
 
@@ -23,6 +23,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -55,7 +56,7 @@ static void RenderSensorPage(char *line, size_t lineSize)
     int waterLevelMM = Get_WaterLevelMM();
     float waterTemp = Get_WaterTemperature();
     int tdsValue = Get_TDSValue();
-    int lightIntensity = Get_LightIntensity();
+    int turbidityNTU = Get_TurbidityNTU();
     const TankParams *params = TankControl_GetParams();
 
     // Line 1: Water Level in mm (YW01 sensor: 0-90mm)
@@ -74,8 +75,8 @@ static void RenderSensorPage(char *line, size_t lineSize)
     snprintf(line, lineSize, "TDS:%dppm", tdsValue);
     OledShowString(0, 3, line, 1);
 
-    // Line 4: Light intensity in lux
-    snprintf(line, lineSize, "Light:%dlux", lightIntensity);
+    // Line 4: Turbidity
+    snprintf(line, lineSize, "NTU:%d", turbidityNTU);
     OledShowString(0, 4, line, 1);
 
     // Line 5: Alarm status

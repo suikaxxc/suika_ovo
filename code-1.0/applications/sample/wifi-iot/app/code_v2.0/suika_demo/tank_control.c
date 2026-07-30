@@ -15,6 +15,7 @@
 #include "water_level.h"
 #include "ds18b20.h"
 #include "tds_sensor.h"
+#include "turbidity_sensor.h"
 #include "light_sensor.h"
 #include "pump_control.h"
 #include "temp_control.h"
@@ -68,6 +69,7 @@ static ControlMode g_control_mode = CONTROL_MODE_AUTO;
 #define WATER_TEMP_CRITICAL_LOW 5.0f
 #define WATER_TEMP_CRITICAL_HIGH 35.0f
 #define TDS_CRITICAL_HIGH 800
+#define TURBIDITY_CRITICAL_HIGH 300
 
 void TankControl_Init(void)
 {
@@ -76,6 +78,7 @@ void TankControl_Init(void)
     TempControl_Init();
     LED_Init();
     Alarm_Init();
+    Turbidity_Init();
 
     printf("[TankControl] Initialized\n");
 }
@@ -201,7 +204,7 @@ void TankControl_ManualFan(int speed)
 // Check for safety conditions and trigger alarms
 // Note: In MANUAL mode, only triggers alarms but does NOT control actuators
 // This ensures manual mode has highest priority
-static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
+static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue, int turbidityValue)
 {
     char alarmMsg[64] = "";
     int isManualMode = (g_control_mode == CONTROL_MODE_MANUAL);
@@ -261,6 +264,14 @@ static void CheckSafetyConditions(int waterLevel, float waterTemp, int tdsValue)
         return;
     }
 
+    // Turbidity check (AZDM01): trigger warning when NTU > 300
+    if (turbidityValue > TURBIDITY_CRITICAL_HIGH)
+    {
+        snprintf(alarmMsg, sizeof(alarmMsg), "Turbidity high: %d NTU", turbidityValue);
+        Alarm_Trigger(ALARM_WARNING, alarmMsg);
+        return;
+    }
+
     // All conditions normal
     if (Alarm_GetLevel() != ALARM_NONE)
     {
@@ -311,14 +322,10 @@ static void AutoTemperatureControl(float waterTemp)
         {
             Heater_Off();
         }
-        // Calculate fan speed based on temperature difference
-        float tempDiff = waterTemp - g_current_params.waterTempMax;
-        int fanSpeed = (int)(tempDiff * 20);  // 20% per degree over max
-        if (fanSpeed < 30) fanSpeed = 30;
-        if (fanSpeed > 100) fanSpeed = 100;
-        if (Fan_GetSpeed() != fanSpeed)
+        // In AUTO mode: above max temperature => fan runs at 100%
+        if (Fan_GetSpeed() != 100)
         {
-            Fan_SetSpeed(fanSpeed);
+            Fan_SetSpeed(100);
         }
     }
     else
@@ -369,16 +376,18 @@ static void TankControl_Task(void *arg)
         WaterLevel_Update();
         LightSensor_Update();
         TDS_Update();
+        Turbidity_Update();
         DS18B20_Update();  // This takes ~750ms for conversion
         
         // Read all sensor values
         int waterLevel = Get_WaterLevelPercent();
         float waterTemp = Get_WaterTemperature();
         int tdsValue = Get_TDSValue();
+        int turbidityValue = Get_TurbidityNTU();
         int lightIntensity = Get_LightIntensity();
 
         // Always check safety conditions regardless of mode
-        CheckSafetyConditions(waterLevel, waterTemp, tdsValue);
+        CheckSafetyConditions(waterLevel, waterTemp, tdsValue, turbidityValue);
 
         // Apply automatic control if in AUTO mode
         if (g_control_mode == CONTROL_MODE_AUTO)

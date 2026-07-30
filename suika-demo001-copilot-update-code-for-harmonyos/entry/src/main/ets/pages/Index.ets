@@ -12,6 +12,7 @@ interface MqttData {
   waterTemp?: number;
   lightIntensity?: number;
   tdsValue?: number;
+  turbidity?: number;
   pumpStatus?: number;
   waterPumpStatus?: number;
   heaterStatus?: number;
@@ -76,6 +77,7 @@ struct Index {
             this.item.waterTemp = receivedData.waterTemp ?? this.item.waterTemp;
             this.item.lightIntensity = receivedData.lightIntensity ?? this.item.lightIntensity;
             this.item.tdsValue = receivedData.tdsValue ?? this.item.tdsValue;
+            this.item.turbidity = receivedData.turbidity ?? this.item.turbidity;
             this.item.alarmStatus = receivedData.alarmStatus ?? this.item.alarmStatus;
             this.item.alarmMessage = receivedData.alarmMessage ?? this.item.alarmMessage;
 
@@ -123,6 +125,7 @@ struct Index {
     this.item.waterTemp = 24;
     this.item.lightIntensity = 450;
     this.item.tdsValue = 280;
+    this.item.turbidity = 120;
     this.item.fanSpeed = 0;
     this.item.waterPumpStatus = 0;
     this.item.wifiStatus = 0;

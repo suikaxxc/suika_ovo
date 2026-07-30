@@ -203,6 +203,45 @@ export struct StatusComponent {
       .borderRadius(8)
       .margin({ bottom: 8 })
 
+      // 浊度指示（AZDM01，单位NTU）
+      Row() {
+        Image($r('app.media.water_level'))
+          .width(24)
+          .height(24)
+        Column() {
+          Row() {
+            Text("浊度")
+              .fontSize(14)
+              .fontColor('#666666')
+            Blank()
+            Text(`${this.item.turbidity} NTU`)
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.getTurbidityColor())
+          }
+          .width('100%')
+
+          Row() {
+            Text(`报警阈值: 300 NTU`)
+              .fontSize(10)
+              .fontColor('#999999')
+            Blank()
+            Text(this.item.turbidity > 300 ? "过高" : "正常")
+              .fontSize(10)
+              .fontColor(this.item.turbidity > 300 ? '#FF5722' : '#4CAF50')
+          }
+          .width('100%')
+          .margin({ top: 4 })
+        }
+        .layoutWeight(1)
+        .margin({ left: 8 })
+      }
+      .width('100%')
+      .padding(8)
+      .backgroundColor('#F5F5F5')
+      .borderRadius(8)
+      .margin({ bottom: 8 })
+
       // 报警状态
       if (this.item.alarmStatus > 0) {
         Row() {
@@ -287,5 +326,9 @@ export struct StatusComponent {
     const totalRange = 100; // 总偏移范围，与offset配合使用
     const progress = ((this.item.tdsValue - this.item.tdsMin + offset) / (range + totalRange)) * 100;
     return Math.max(0, Math.min(100, progress));
+  }
+
+  getTurbidityColor(): string {
+    return this.item.turbidity > 300 ? '#FF5722' : '#4CAF50';
   }
 }
